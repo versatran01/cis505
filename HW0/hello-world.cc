@@ -6,6 +6,6 @@ int main(int argc, char *argv[])
   // Example: 'Hello World - this is Linh Thi Xuan Phan (linhphan)'
 
   printf("*** Author: Chao Qu (quchao)\n");
-  
+
   return 0;
 }
