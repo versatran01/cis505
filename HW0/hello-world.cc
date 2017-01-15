@@ -5,7 +5,7 @@ int main(int argc, char *argv[])
   // TODO: Change the text below to 'Hello World - this is <yourNAME> (<yourSEASlogin)'
   // Example: 'Hello World - this is Linh Thi Xuan Phan (linhphan)'
 
-  printf("Your text goes here\n");
+  printf("*** Author: Chao Qu (quchao)\n");
   
   return 0;
 }
