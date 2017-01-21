@@ -1,0 +1,14 @@
+# qtcreator
+# ========
+*.txt.user
+*.files
+*.includes
+*.creator.user
+*.creator
+*.config
+*.files
+*.creator.user.*
+
+*.zip
+.metadata/
+
