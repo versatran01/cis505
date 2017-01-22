@@ -1,4 +1,4 @@
-TARGETS = makeinput mysort
+TARGETS = makeinput mysort test_sort
 
 all: $(TARGETS)
 
@@ -15,3 +15,6 @@ pack:
 clean::
 	rm -fv $(TARGETS)
 	rm -fv hw1_input*.txt
+
+test_sort: test_sort.cc
+	g++ -pthread $< -o $@ -DDEBUG -std=c++14
