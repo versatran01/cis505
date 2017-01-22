@@ -31,7 +31,13 @@ struct arguments {
   char **files;
 };
 
-/// Parse a single option
+/**
+ * @brief parse_opt
+ * @param key
+ * @param arg
+ * @param state
+ * @return error code
+ */
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   struct arguments *args = (struct arguments *)state->input;
   switch (key) {
@@ -54,6 +60,12 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   return 0;
 }
 
+/**
+ * @brief bubble_sort
+ * @param first Iterator to the first element in range
+ * @param last Iterator to the last element in range
+ * @param compare Functor that follows strict weak ordering
+ */
 template <typename Iter, typename Comp = std::less<
                              typename std::iterator_traits<Iter>::value_type>>
 void bubble_sort(Iter first, Iter last, Comp compare = Comp()) {
@@ -64,7 +76,7 @@ void bubble_sort(Iter first, Iter last, Comp compare = Comp()) {
       "bubble_sort: Iter should be random access iterators or pointers to an "
       "array");
 
-  // sort
+  // sort routine
   Iter i, j;
   for (i = first; i != last; ++i)
     for (j = first; j < i; ++j)
@@ -83,8 +95,14 @@ int main(int argc, char *argv[]) {
   int status = argp_parse(&argp, argc, argv, 0, 0, &args);
 
   if (status) {
-    fprintf(stderr, "Failed to parse arguments, error code: %d", status);
+    fprintf(stderr, "Failed to parse arguments, error code: %d\n", status);
     exit(status);
+  }
+
+  if (args.num_processes <= 0) {
+    fprintf(stderr, "Number of processes is not a positive integer: %d\n",
+            args.num_processes);
+    exit(1);
   }
 
   DEBUG_PRINT("Number of processes: %d\n", args.num_processes);
@@ -118,6 +136,5 @@ int main(int argc, char *argv[]) {
     std::copy(data.begin(), data.end(),
               std::ostream_iterator<data_t>(std::cout, "\n"));
   }
-
   return 0;
 }

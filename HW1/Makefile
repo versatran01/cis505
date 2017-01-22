@@ -14,7 +14,7 @@ pack:
 
 clean::
 	rm -fv $(TARGETS)
-	rm -fv hw1_input*.txt
+	rm -fv hw1_*.txt
 
 test_sort: test_sort.cc
 	g++ -pthread $< -o $@ -DDEBUG -std=c++14
