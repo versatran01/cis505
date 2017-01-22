@@ -14,3 +14,4 @@ pack:
 
 clean::
 	rm -fv $(TARGETS)
+	rm -fv hw1_input*.txt
