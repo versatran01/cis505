@@ -18,7 +18,16 @@ if args.run:
     print("Run mysort on input files")
     files = glob("hw1_input*.txt")
     files_with_space = " ".join(files)
-    command = "./mysort -n {} {}".format(args.num_processes, files_with_space)
+    command = "./mysort -n {} {} > hw1_output.txt".format(args.num_processes,
+                                                          files_with_space)
+    print(command)
+    system(command)
+
+    command = "cat {} | sort -n > hw1_expected.txt".format(files_with_space)
+    print(command)
+    system(command)
+
+    command = "diff hw1_output.txt hw1_expected.txt > hw1_result.txt"
     print(command)
     system(command)
     exit()
