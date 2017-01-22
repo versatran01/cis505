@@ -6,7 +6,7 @@ makeinput: makeinput.cc
 	g++ $< -o $@
 
 mysort: mysort.cc
-	g++ -pthread $< -o $@
+	g++ -pthread $< -o $@ -DDEBUG
 
 pack:
 	rm -f submit-hw1.zip
