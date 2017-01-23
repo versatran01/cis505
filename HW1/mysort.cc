@@ -1,12 +1,14 @@
 #include <argp.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <istream>
 #include <iterator>
 #include <string>
+#include <unistd.h>
 #include <vector>
 
 using data_t = int64_t;
@@ -139,7 +141,44 @@ int main(int argc, char *argv[]) {
     exit(0);
   }
 
-  // Common case, multiple processes or threads
+  /**
+   * @brief The Child struct
+   */
+  struct Child {
+    pid_t pid;
+    std::array<int, 2> p2c; // pipe from parent to child
+    std::array<int, 2> c2p; // pipe from child to parent
+  };
+
+  const int N = args.num_processes;
+  std::vector<Child> children(N);
+
+  // Common case, multiple processes
+  for (int i = 0; i < N; ++i) {
+    // Create pipe for each child before fork
+    if (pipe(children[i].p2c.data()) == -1) {
+      fprintf(stderr, "Pipe p2c failed\n");
+      exit(1);
+    }
+
+    if (pipe(children[i].c2p.data()) == -1) {
+      fprintf(stderr, "Pipe c2p failed\n");
+      exit(1);
+    }
+
+    if ((children[i].pid = fork()) < 0) {
+      fprintf(stderr, "Fork failed\n");
+      exit(1);
+    } else if (children[i].pid == 0) {
+      // Child
+      DEBUG_PRINT("Child %d: %d\n", i, (int)getpid());
+      // Do some work
+      exit(0);
+    } else {
+      // Parent
+      DEBUG_PRINT("Parent: %d\n", (int)getpid());
+    }
+  }
 
   return 0;
 }

@@ -16,13 +16,14 @@ void bubble_sort(Iter first, Iter last, Comp compare = Comp()) {
   Iter i, j;
   for (i = first; i != last; ++i)
     for (j = first; j < i; ++j)
-      if (compare(*i, *j)) std::iter_swap(i, j);
+      if (compare(*i, *j))
+        std::iter_swap(i, j);
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   std::vector<int> data = {5, 4, 3, 2, 1};
   bubble_sort(data.begin(), data.end());
-  for (const auto& d : data) {
+  for (const auto &d : data) {
     std::cout << d << " ";
   }
   std::cout << "\n";
