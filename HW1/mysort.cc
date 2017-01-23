@@ -129,12 +129,17 @@ int main(int argc, char *argv[]) {
   }
   DEBUG_PRINT("Number of integers: %zu\n", data.size());
 
-  // Special case
+  // Special case, single process or thread
   if (args.num_processes == 1) {
+    // TODO: mergesort or bubblesort?
     bubble_sort(data.begin(), data.end());
     // write to stdout
     std::copy(data.begin(), data.end(),
               std::ostream_iterator<data_t>(std::cout, "\n"));
+    exit(0);
   }
+
+  // Common case, multiple processes or threads
+
   return 0;
 }
