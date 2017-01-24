@@ -123,15 +123,22 @@ int main(int argc, char *argv[]) {
   }
 
   // Read data from files
-  std::vector<data_t> data;
-  for (const auto &f : files) {
-    std::ifstream infile(f);
-    std::istream_iterator<data_t> input(infile);
-    std::copy(input, std::istream_iterator<data_t>(), std::back_inserter(data));
-  }
+  std::vector<data_t> data = {1, 2, 3, 4, 5, 6, 7, 8};
+  //  for (const auto &f : files) {
+  //    std::ifstream infile(f);
+  //    std::istream_iterator<data_t> input(infile);
+  //    std::copy(input, std::istream_iterator<data_t>(),
+  //    std::back_inserter(data));
+  //  }
   DEBUG_PRINT("Number of integers: %zu\n", data.size());
 
+  if (data.empty()) {
+    fprintf(stderr, "No data to sort");
+    exit(1);
+  }
+
   // Special case, single process or thread
+  // TODO: also when the number of data to be sorted is less than num_processes
   if (args.num_processes == 1) {
     // TODO: mergesort or bubblesort?
     bubble_sort(data.begin(), data.end());
@@ -155,30 +162,99 @@ int main(int argc, char *argv[]) {
 
   // Common case, multiple processes
   for (int i = 0; i < N; ++i) {
-    // Create pipe for each child before fork
-    if (pipe(children[i].p2c.data()) == -1) {
-      fprintf(stderr, "Pipe p2c failed\n");
+    Child &child = children[i];
+
+    // Create a pair of pipes for each child before fork
+    if (pipe(child.p2c.data()) == -1) {
+      fprintf(stderr, "Create pipe p2c failed\n");
       exit(1);
     }
 
-    if (pipe(children[i].c2p.data()) == -1) {
-      fprintf(stderr, "Pipe c2p failed\n");
+    if (pipe(child.c2p.data()) == -1) {
+      fprintf(stderr, "Create pipe c2p failed\n");
       exit(1);
     }
 
-    if ((children[i].pid = fork()) < 0) {
+    // Fork a child process
+    if ((child.pid = fork()) < 0) {
       fprintf(stderr, "Fork failed\n");
       exit(1);
-    } else if (children[i].pid == 0) {
+    } else if (child.pid == 0) {
       // Child
       DEBUG_PRINT("Child %d: %d\n", i, (int)getpid());
-      // Do some work
+
+      // Close write end of p2c
+      if (close(child.p2c[1]) == -1) {
+        fprintf(stderr, "Close write end of p2c pipe failed\n");
+        exit(1);
+      }
+
+      // Close read end of c2p
+      if (close(child.c2p[0]) == -1) {
+        fprintf(stderr, "Close read end of c2p pipe failed\n");
+        exit(1);
+      }
+
+      // Child read data from parent
+      // first convert pipe file handle to FILE object
+      FILE *fp2c_r = fdopen(child.p2c[0], "r");
+      if (fp2c_r == NULL) {
+        fprintf(stderr, "fdopen p2c read failed\n");
+        exit(1);
+      }
+
+      fclose(fp2c_r);
+
+      // Sort the array
+
+      // Child write data back to parent
+      FILE *fc2p_w = fdopen(child.c2p[1], "w");
+      if (fc2p_w == NULL) {
+        fprintf(stderr, "fdopen c2p write failed\n");
+        exit(1);
+      }
+
+      // TODO: write data to parent
+      fclose(fc2p_w);
+
       exit(0);
     } else {
       // Parent
       DEBUG_PRINT("Parent: %d\n", (int)getpid());
+
+      // Close read end of p2c
+      if (close(child.p2c[0]) == -1) {
+        fprintf(stderr, "Close read end of p2c pipe failed\n");
+        exit(1);
+      }
+
+      // Close write end of c2p
+      if (close(child.c2p[1]) == -1) {
+        fprintf(stderr, "Close write end of c2p pipe failed\n");
+        exit(1);
+      }
+
+      // Parent write to data to child
+      // First convert pipe file handle to file object
+      FILE *fp2c_w = fdopen(child.p2c[1], "w");
+      if (fp2c_w == NULL) {
+        fprintf(stderr, "fdopen p2c write failed\n");
+        exit(1);
+      }
+
+      // TODO: write data to child
+      // Looks like we don't need this?
+      // fclose(fp2c_w);
+
+      // Close write end of p2c when writing is done
+      if (close(child.p2c[1]) == -1) {
+        fprintf(stderr, "Close write end of p2c pipe failed\n");
+        exit(1);
+      }
     }
   }
+
+  // Parent wait for children
 
   return 0;
 }
