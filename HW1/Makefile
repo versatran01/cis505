@@ -1,4 +1,4 @@
-TARGETS = makeinput mysort test_sort
+TARGETS = makeinput mysort test_sort test_divide
 
 all: $(TARGETS)
 

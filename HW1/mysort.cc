@@ -9,6 +9,7 @@
 #include <iterator>
 #include <string>
 #include <unistd.h>
+#include <unistd.h>
 #include <vector>
 
 using data_t = int64_t;
@@ -67,6 +68,27 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 }
 
 /**
+ * @brief divide_equal
+ * @param n size of data
+ * @param k size of parts
+ * @return a list of splitting indices
+ */
+std::vector<size_t> divide_equal(size_t n, size_t k) {
+  size_t length = n / k;
+  size_t remain = n % k;
+
+  std::vector<size_t> split(k + 1);
+
+  split[0] = 0;
+
+  for (size_t i = 0; i < k; ++i) {
+    int extra = (i < remain) ? 1 : 0;
+    split[i + 1] = split[i] + length + extra;
+  }
+
+  return split;
+}
+/**
  * @brief bubble_sort
  * @param first Iterator to the first element in range
  * @param last Iterator to the last element in range
@@ -76,6 +98,7 @@ template <typename Iter, typename Comp = std::less<
                              typename std::iterator_traits<Iter>::value_type>>
 void bubble_sort(Iter first, Iter last, Comp compare = Comp()) {
   // Check if Iter is random access iterator, fail at compile time if it is not
+  // This part is totally useless, just for fun
   using Iter_category = typename std::iterator_traits<Iter>::iterator_category;
   static_assert(
       std::is_same<std::random_access_iterator_tag, Iter_category>::value,
@@ -127,7 +150,9 @@ int main(int argc, char *argv[]) {
   }
 
   // Read data from files
-  std::vector<data_t> data = {1, 2, 3, 4, 5, 6, 7, 8};
+  // TODO: change back after testing
+  std::vector<data_t> data = {8, 7, 6, 5, 4, 3, 2, 1};
+  args.num_processes = 2;
   //  for (const auto &f : files) {
   //    std::ifstream infile(f);
   //    std::istream_iterator<data_t> input(infile);
@@ -141,9 +166,9 @@ int main(int argc, char *argv[]) {
     exit(EXIT_FAILURE);
   }
 
-  // Special case, single process or thread
+  // Special case
+  // single process or thread
   // or when the number to data to process <= num_processes
-  // TODO: also when the number of data to be sorted is less than num_processes
   if (args.num_processes == 1 || data.size() <= args.num_processes) {
     // TODO: mergesort or bubblesort?
     bubble_sort(data.begin(), data.end());
@@ -152,6 +177,9 @@ int main(int argc, char *argv[]) {
               std::ostream_iterator<data_t>(std::cout, "\n"));
     exit(EXIT_SUCCESS);
   }
+
+  // Divide array into N almost equal parts
+  const auto split = divide_equal(data.size(), args.num_processes);
 
   /**
    * @brief The Child struct
@@ -207,6 +235,18 @@ int main(int argc, char *argv[]) {
         exit(FDOPEN_FAILURE);
       }
 
+      // Read data from parent
+      const auto length = split[i + 1] - split[i];
+      std::vector<data_t> sub_data(length);
+      for (size_t i = 0; i < length; ++i) {
+        fscanf(fp2c_r, "%ju", &sub_data[i]);
+      }
+
+      for (const auto &d : sub_data) {
+        std::cout << d << " ";
+      }
+      std::cout << "\n";
+
       // Child write data back to parent
       FILE *fc2p_w = fdopen(child.c2p[1], "w");
       if (fc2p_w == NULL) {
@@ -239,9 +279,14 @@ int main(int argc, char *argv[]) {
         exit(FDOPEN_FAILURE);
       }
 
-      // TODO: write data to child
-      // Looks like we don't need this?
-      fclose(fp2c_w);
+      // Write data to child
+      auto first = split[i];
+      const auto last = split[i + 1];
+      const auto length = last - first;
+      DEBUG_PRINT("Write to child %d, length %zu\n", i, length);
+      for (; first != last; ++first) {
+        fprintf(fp2c_w, "%ju", data[first]);
+      }
 
       // Close write end of p2c when writing is done
       if (close(child.p2c[1]) == -1) {
