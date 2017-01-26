@@ -9,10 +9,9 @@
 #include <iterator>
 #include <string>
 #include <unistd.h>
-#include <unistd.h>
 #include <vector>
 
-using data_t = int64_t;
+using data_t = long long;
 
 #ifdef DEBUG
 #define DEBUG_PRINT(...)                                                       \
@@ -170,7 +169,6 @@ int main(int argc, char *argv[]) {
   // single process or thread
   // or when the number to data to process <= num_processes
   if (args.num_processes == 1 || data.size() <= args.num_processes) {
-    // TODO: mergesort or bubblesort?
     bubble_sort(data.begin(), data.end());
 
     std::copy(data.begin(), data.end(),
@@ -186,8 +184,8 @@ int main(int argc, char *argv[]) {
    */
   struct Child {
     pid_t pid;
-    std::array<int, 2> p2c; // pipe from parent to child
-    std::array<int, 2> c2p; // pipe from child to parent
+    int p2c[2]; // pipe from parent to child
+    int c2p[2]; // pipe from child to parent
   };
 
   std::vector<Child> children(args.num_processes);
@@ -197,12 +195,12 @@ int main(int argc, char *argv[]) {
     Child &child = children[i];
 
     // Create a pair of pipes for each child before fork
-    if (pipe(child.p2c.data()) == -1) {
+    if (pipe(child.p2c) == -1) {
       fprintf(stderr, "Create pipe p2c failed\n");
       exit(PIPE_OPEN_FAILURE);
     }
 
-    if (pipe(child.c2p.data()) == -1) {
+    if (pipe(child.c2p) == -1) {
       fprintf(stderr, "Create pipe c2p failed\n");
       exit(PIPE_OPEN_FAILURE);
     }
@@ -238,21 +236,26 @@ int main(int argc, char *argv[]) {
       // Read data from parent
       const auto length = split[i + 1] - split[i];
       std::vector<data_t> sub_data(length);
-      for (size_t i = 0; i < length; ++i) {
-        fscanf(fp2c_r, "%ju", &sub_data[i]);
-      }
 
-      for (const auto &d : sub_data) {
-        std::cout << d << " ";
-      }
-      std::cout << "\n";
+      size_t j = 0;
+//      while (!feof(fp2c_r)) {
+      data_t b;
+      fscanf(fp2c_r, "%lld", &b);
+//      }
 
-      // Child write data back to parent
-      FILE *fc2p_w = fdopen(child.c2p[1], "w");
-      if (fc2p_w == NULL) {
-        fprintf(stderr, "fdopen c2p write failed\n");
-        exit(FDOPEN_FAILURE);
-      }
+//      for (const auto &d : sub_data) {
+//        std::cout << d << " ";
+//      }
+      std::cout << b << "\n";
+
+      fclose(fp2c_r);
+      close(child.p2c[0]);
+
+//      FILE *fc2p_w = fdopen(child.c2p[1], "w");
+//      if (fc2p_w == NULL) {
+//        fprintf(stderr, "fdopen c2p write failed\n");
+//        exit(FDOPEN_FAILURE);
+//      }
 
       exit(EXIT_SUCCESS);
     } else {
@@ -284,11 +287,12 @@ int main(int argc, char *argv[]) {
       const auto last = split[i + 1];
       const auto length = last - first;
       DEBUG_PRINT("Write to child %d, length %zu\n", i, length);
-      for (; first != last; ++first) {
-        fprintf(fp2c_w, "%ju", data[first]);
-      }
+      //      for (; first != last; ++first) {
+      fprintf(fp2c_w, "%lld", 10ll);
+      //      }
 
       // Close write end of p2c when writing is done
+      fclose(fp2c_w);
       if (close(child.p2c[1]) == -1) {
         fprintf(stderr, "Close write end of p2c pipe failed\n");
         exit(PIPE_CLOSE_FAILURE);
@@ -296,7 +300,7 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // Parent wait for children
+  // Parent start reading from pipe
 
   return 0;
 }
