@@ -1,15 +1,12 @@
-#include <argp.h>
+#include "mysort.h" // bubble_sort, divide_equal, merge_sort
 
-#include <algorithm>
-#include <array>
-#include <cstdlib>
+#include <argp.h>
+#include <unistd.h>
+
+#include <string>
 #include <fstream>
 #include <iostream>
 #include <istream>
-#include <iterator>
-#include <string>
-#include <unistd.h>
-#include <vector>
 
 using data_t = long long;
 
@@ -33,7 +30,8 @@ static char args_doc[] = "FILE [FILES...]";
 struct arguments {
   int num_processes = 4;
   int use_thread = 0;
-  char *file; // need at least 1 file
+  int verbose = 0; // verbose mode
+  char *file;      // need at least 1 file
   char **files;
 };
 
@@ -53,6 +51,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   case 't':
     args->use_thread = 1;
     break;
+  case 'v':
+    args->verbose = 1;
   case ARGP_KEY_NO_ARGS:
     argp_usage(state);
   case ARGP_KEY_ARG:
@@ -66,58 +66,13 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   return 0;
 }
 
-/**
- * @brief divide_equal
- * @param n size of data
- * @param k size of parts
- * @return a list of splitting indices
- */
-std::vector<size_t> divide_equal(size_t n, size_t k) {
-  size_t length = n / k;
-  size_t remain = n % k;
-
-  std::vector<size_t> split(k + 1);
-
-  split[0] = 0;
-
-  for (size_t i = 0; i < k; ++i) {
-    int extra = (i < remain) ? 1 : 0;
-    split[i + 1] = split[i] + length + extra;
-  }
-
-  return split;
-}
-/**
- * @brief bubble_sort
- * @param first Iterator to the first element in range
- * @param last Iterator to the last element in range
- * @param compare Functor that follows strict weak ordering
- */
-template <typename Iter, typename Comp = std::less<
-                             typename std::iterator_traits<Iter>::value_type>>
-void bubble_sort(Iter first, Iter last, Comp compare = Comp()) {
-  // Check if Iter is random access iterator, fail at compile time if it is not
-  // This part is totally useless, just for fun
-  using Iter_category = typename std::iterator_traits<Iter>::iterator_category;
-  static_assert(
-      std::is_same<std::random_access_iterator_tag, Iter_category>::value,
-      "bubble_sort: Iter should be random access iterators or pointers to an "
-      "array");
-
-  // sort routine
-  Iter i, j;
-  for (i = first; i != last; ++i)
-    for (j = first; j < i; ++j)
-      if (compare(*i, *j))
-        std::iter_swap(i, j);
-}
-
 int main(int argc, char *argv[]) {
   // Parse command line arguments
   struct arguments args;
   struct argp_option options[] = {
       {0, 'n', "NUM_PROCESSES", 0, "Number of processes."},
       {0, 't', 0, 0, "Use threads instead of processes."},
+      {0, 'v', 0, 0, "Verbose mode."},
       {0}};
   struct argp argp = {options, parse_opt, args_doc, 0};
   int status = argp_parse(&argp, argc, argv, 0, 0, &args);
@@ -150,7 +105,7 @@ int main(int argc, char *argv[]) {
 
   // Read data from files
   // TODO: change back after testing
-  std::vector<data_t> data = {8, 7, 6, 5, 4, 3, 2, 1};
+  std::vector<data_t> data = {4, 3, 2, 1, 8, 7, 6, 5};
   args.num_processes = 2;
   //  for (const auto &f : files) {
   //    std::ifstream infile(f);
@@ -238,24 +193,22 @@ int main(int argc, char *argv[]) {
       std::vector<data_t> sub_data(length);
 
       size_t j = 0;
-//      while (!feof(fp2c_r)) {
-      data_t b;
-      fscanf(fp2c_r, "%lld", &b);
-//      }
+      while (!feof(fp2c_r)) {
+        fscanf(fp2c_r, "%lld\n", &sub_data[j++]);
+      }
 
-//      for (const auto &d : sub_data) {
-//        std::cout << d << " ";
-//      }
-      std::cout << b << "\n";
+      if (j != length) {
+        fprintf(stderr, "Data mismatch, expected: %zu, actual: %zu", length, j);
+        exit(EXIT_FAILURE);
+      }
 
+      for (const auto &d : sub_data) {
+        printf("%lld ", d);
+      }
+      printf("\n");
+
+      // Close read end
       fclose(fp2c_r);
-      close(child.p2c[0]);
-
-//      FILE *fc2p_w = fdopen(child.c2p[1], "w");
-//      if (fc2p_w == NULL) {
-//        fprintf(stderr, "fdopen c2p write failed\n");
-//        exit(FDOPEN_FAILURE);
-//      }
 
       exit(EXIT_SUCCESS);
     } else {
@@ -287,16 +240,13 @@ int main(int argc, char *argv[]) {
       const auto last = split[i + 1];
       const auto length = last - first;
       DEBUG_PRINT("Write to child %d, length %zu\n", i, length);
-      //      for (; first != last; ++first) {
-      fprintf(fp2c_w, "%lld", 10ll);
-      //      }
 
-      // Close write end of p2c when writing is done
-      fclose(fp2c_w);
-      if (close(child.p2c[1]) == -1) {
-        fprintf(stderr, "Close write end of p2c pipe failed\n");
-        exit(PIPE_CLOSE_FAILURE);
+      for (; first != last; ++first) {
+        fprintf(fp2c_w, "%lld\n", data[first]);
       }
+
+      // Close write end
+      fclose(fp2c_w);
     }
   }
 

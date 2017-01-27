@@ -1,24 +1,25 @@
-TARGETS = makeinput mysort test_sort test_divide test_fork
+TARGETS = makeinput mysort
+TESTS_DIR = tests
+TESTS = test_sort test_divide test_fork
+CC = g++
+CFLAGS = -lpthread -std=c++14 -I. -DDEBUG
 
-all: $(TARGETS)
+all: $(TARGETS) $(TESTS)
 
 makeinput: makeinput.cc
-	g++ $< -o $@
+	$(CC) $< -o $@
 
 mysort: mysort.cc
-	g++ -pthread $< -o $@ -DDEBUG -std=c++14
+	$(CC) $(CFLAGS) $< -o $@
 
-test_sort: test_sort.cc
-	g++ -pthread $< -o $@
-
-test_fork: test_fork.cc
-	g++ -pthread $< -o $@
+test_% : tests/test_%.cc
+	$(CC) $(CFLAGS) $< -o $@
 
 pack:
 	rm -f submit-hw1.zip
-	zip -r submit-hw1.zip *.cc README Makefile graph*.pdf description*.txt
+	zip -r submit-hw1.zip *.cc README Makefile graph*.pdf description*.txt graph*.png
 
 clean::
-	rm -fv $(TARGETS)
+	rm -fv $(TARGETS) $(TESTS)
 	rm -fv hw1_*.txt
 
