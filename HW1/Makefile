@@ -1,6 +1,6 @@
 TARGETS = makeinput mysort
 TESTS_DIR = tests
-TESTS = test_sort test_divide test_fork test_merge
+TESTS = test_main test_divide test_fork test_merge
 OBJS = mysort.o common.o
 
 CC = g++

@@ -2,7 +2,9 @@
 #define MYSORT_H
 
 #include <algorithm>
+#include <cassert>
 #include <iterator>
+#include <queue>
 #include <vector>
 
 /**
@@ -31,10 +33,10 @@ void bubble_sort(Iter first, Iter last, Comp compare = Comp()) {
 }
 
 /**
- * @brief divide_equal
+ * @brief Divide a size n into k almost equal parts
  * @param n size of data
  * @param k size of parts
- * @return a list of splitting indices
+ * @return a list of splitting indices, size k+1, starts from 0, ends in n
  */
 static std::vector<size_t> divide_equal(size_t n, size_t k) {
   size_t length = n / k;
@@ -50,6 +52,65 @@ static std::vector<size_t> divide_equal(size_t n, size_t k) {
   }
 
   return split;
+}
+
+/// Custom comparator for min heap
+template <typename P> struct DerefFirstGreater {
+  bool operator()(const P &p1, const P &p2) {
+    return *(p1.first) > *(p2.first);
+  }
+};
+
+template <typename Iter> using IterPair = std::pair<Iter, Iter>;
+template <typename T>
+using MinHeap = std::priority_queue<T, std::vector<T>, DerefFirstGreater<T>>;
+
+/**
+ * @brief A k way merge sort using min heap
+ * @param data Input data
+ * @param split Split from divide_equal
+ * @return vector with merged data, sorted
+ */
+template <typename T>
+std::vector<T> k_way_merge(const std::vector<T> &data,
+                           const std::vector<size_t> &split) {
+  // Since input is a vector, Iter is guaranteed to be a random access iterator
+  using Iter = typename std::vector<T>::const_iterator;
+
+  const auto n = data.size();
+  const auto k = split.size() - 1;
+  assert(n >= k && "n must be greater than k");
+  auto beg = data.begin();
+
+  // Prepare output
+  std::vector<T> merged;
+  merged.reserve(n);
+
+  // Prepare min heap
+  MinHeap<IterPair<Iter>> min_heap;
+  for (size_t i = 0; i < k; ++i) {
+    min_heap.push({beg + split[i], beg + split[i + 1]});
+  }
+
+  // Sorting
+  for (size_t i = 0; i < n; ++i) {
+    // Get the smallest item from min heap
+    // Just to be safe, we acquire a copy, could possible use auto?
+    IterPair<Iter> iter_pair = min_heap.top();
+    // Put it into merged
+    merged.push_back(*(iter_pair.first));
+    // Pop the smallest item
+    min_heap.pop();
+    // Increment first iterator of iter_pair
+    ++(iter_pair.first);
+    // Check if it reaches last, if not, put it back in the heap
+    if (iter_pair.first != iter_pair.second) {
+      min_heap.push(iter_pair);
+    }
+  }
+
+  assert(merged.size() == data.size() && "merged size doesn't match data size");
+  return merged;
 }
 
 #endif // MYSORT_H
