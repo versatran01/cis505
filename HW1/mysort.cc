@@ -102,7 +102,15 @@ std::vector<data_t> ReadDataFromFiles(const std::vector<std::string> &files) {
   return data;
 }
 
-// TODO: refactor read/write
+/**
+ * @brief Print a range to stdout
+ */
+template <typename Iter>
+void PrintRangeToStdout(Iter first, Iter last, const char *delim = "\n") {
+  std::copy(first, last, std::ostream_iterator<data_t>(std::cout, delim));
+}
+
+// TODO: refactorread/write
 void WriteRangeToPipe() {}
 
 void ReadPipeToRange() {}
@@ -159,11 +167,11 @@ int main(int argc, char *argv[]) {
   // single process or thread
   // or when the number to data to process <= num_processes
   // just use bubble_sort on the entire data
-  if (args.num_processes == 1 || data.size() <= args.num_processes) {
+  if (args.num_processes == 1 ||
+      data.size() <= static_cast<size_t>(args.num_processes)) {
     bubble_sort(data.begin(), data.end());
 
-    std::copy(data.begin(), data.end(),
-              std::ostream_iterator<data_t>(std::cout, "\n"));
+    PrintRangeToStdout(data.cbegin(), data.cend());
     exit(EXIT_SUCCESS);
   }
 
@@ -317,6 +325,9 @@ int main(int argc, char *argv[]) {
   DEBUG_PRINT("\n");
 
   // Do merge sort here
+  const auto merged = k_way_merge(data, split);
+  // Output to stdout
+  PrintRangeToStdout(merged.cbegin(), merged.cend());
 
   return 0;
 }
