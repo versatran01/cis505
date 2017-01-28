@@ -5,12 +5,12 @@ from os import system
 
 
 parser = ap.ArgumentParser()
-parser.add_argument('--num_files', '-f', nargs='?', default='4',
+parser.add_argument('--num_files', '-f', nargs='?', default='1',
                     help='number of files')
 parser.add_argument('--num_integers', '-i', nargs='?', default='1000',
                     help='number of integers')
 parser.add_argument('--run', '-r', action='store_true', help="run mysort")
-parser.add_argument('--num_processes', '-p', nargs='?', default='4',
+parser.add_argument('--num_processes', '-n', nargs='?', default='4',
                     help='number of processes')
 args = parser.parse_args()
 

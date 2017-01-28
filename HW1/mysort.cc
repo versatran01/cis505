@@ -135,9 +135,6 @@ int main(int argc, char *argv[]) {
                args.num_processes);
   }
 
-  // TODO: change this back
-  args.num_processes = 3;
-
   DEBUG_PRINT("Number of processes: %d\n", args.num_processes);
   DEBUG_PRINT("Use threads: %d\n", args.use_thread);
   DEBUG_PRINT("Input files: %s", args.file);
@@ -155,8 +152,7 @@ int main(int argc, char *argv[]) {
   DEBUG_PRINT("\n");
 
   // TODO: change this back
-  //  auto data = ReadDataFromFiles(files);
-  std::vector<data_t> data = {8, 7, 6, 5, 4, 3, 2, 1};
+  auto data = ReadDataFromFiles(files);
   DEBUG_PRINT("Number of integers: %zu\n", data.size());
 
   // If there's no data to sort, just exit
