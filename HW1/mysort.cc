@@ -1,7 +1,8 @@
-#include "mysort.h" // bubble_sort, divide_equal, merge_sort
-#include "common.h" // errExit, fatal
+#include "mysort.h"  // bubble_sort, divide_equal, merge_sort
+#include "common.h"  // errExit, fatal
 
 #include <argp.h>
+#include <pthread.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -22,8 +23,8 @@ static char args_doc[] = "FILE [FILES...]";
 struct Child {
   int id;
   pid_t pid;
-  int p2c[2]; // pipe from parent to child
-  int c2p[2]; // pipe from child to parent
+  int p2c[2];  // pipe from parent to child
+  int c2p[2];  // pipe from child to parent
 };
 
 /**
@@ -32,10 +33,20 @@ struct Child {
 struct arguments {
   int num_processes = 4;
   int use_thread = 0;
-  int verbose = 0; // verbose mode
-  char *file;      // need at least 1 file
+  int verbose = 0;  // verbose mode
+  char *file;       // need at least 1 file
   char **files;
 };
+
+/**
+ * @brief SortWorker
+ * @param args
+ * @return
+ */
+void *SortWorker(void *args) {
+  // Do the sort here
+  // TODO: think about what to put in args and return values
+}
 
 /**
  * @brief Parse command line options
@@ -47,23 +58,23 @@ struct arguments {
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   struct arguments *args = (struct arguments *)state->input;
   switch (key) {
-  case 'n':
-    args->num_processes = std::atoi(arg);
-    break;
-  case 't':
-    args->use_thread = 1;
-    break;
-  case 'v':
-    args->verbose = 1;
-  case ARGP_KEY_NO_ARGS:
-    argp_usage(state);
-  case ARGP_KEY_ARG:
-    args->file = arg;
-    args->files = &state->argv[state->next];
-    state->next = state->argc;
-    break;
-  default:
-    return ARGP_ERR_UNKNOWN;
+    case 'n':
+      args->num_processes = std::atoi(arg);
+      break;
+    case 't':
+      args->use_thread = 1;
+      break;
+    case 'v':
+      args->verbose = 1;
+    case ARGP_KEY_NO_ARGS:
+      argp_usage(state);
+    case ARGP_KEY_ARG:
+      args->file = arg;
+      args->files = &state->argv[state->next];
+      state->next = state->argc;
+      break;
+    default:
+      return ARGP_ERR_UNKNOWN;
   }
   return 0;
 }
@@ -135,6 +146,9 @@ int main(int argc, char *argv[]) {
                args.num_processes);
   }
 
+  // TODO: change this back
+  args.num_processes = 2;
+
   DEBUG_PRINT("Number of processes: %d\n", args.num_processes);
   DEBUG_PRINT("Use threads: %d\n", args.use_thread);
   DEBUG_PRINT("Input files: %s", args.file);
@@ -152,12 +166,12 @@ int main(int argc, char *argv[]) {
   DEBUG_PRINT("\n");
 
   // TODO: change this back
-  auto data = ReadDataFromFiles(files);
+  //  auto data = ReadDataFromFiles(files);
+  std::vector<data_t> data = {7, 6, 5, 4, 3, 2, 1, 0};
   DEBUG_PRINT("Number of integers: %zu\n", data.size());
 
   // If there's no data to sort, just exit
-  if (data.empty())
-    exit(EXIT_SUCCESS);
+  if (data.empty()) exit(EXIT_SUCCESS);
 
   // ====== Special case ======
   // single process or thread
@@ -171,10 +185,31 @@ int main(int argc, char *argv[]) {
     exit(EXIT_SUCCESS);
   }
 
-  // ====== Common case =======
-  // multiple processes
-  // Divide array into N almost equal parts
+  // Split data into n almost equal parts
   const auto split = divide_equal(data.size(), args.num_processes);
+
+  // ====== Common case: thread ======
+  // multi threads
+  if (args.use_thread) {
+    std::vector<pthread_t> threads(args.num_processes);
+    for (int i = 0; i < args.num_processes; ++i) {
+      // Create a thread
+    }
+
+    for (int i = 0; i < args.num_processes; ++i) {
+      // Wait for thread
+    }
+
+    // TODO: this part is the same as the multi process version, can refactor
+    // Assume each part of data is sorted, just call merge sort directly
+    const auto merged = k_way_merge(data, split);
+    // Print to stdout
+
+    exit(EXIT_SUCCESS);
+  }
+
+  // ====== Common case: process =======
+  // multiple processes
 
   std::vector<Child> children(args.num_processes);
 
