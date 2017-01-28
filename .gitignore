@@ -13,4 +13,5 @@
 .metadata/
 
 hw1_*.txt
+*.o
 

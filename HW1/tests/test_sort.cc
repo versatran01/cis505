@@ -33,3 +33,5 @@ TEST_CASE("Bubble sort", "[bubble_sort]") {
     REQUIRE(s == d);
   }
 }
+
+TEST_CASE("Divide equal", "[divide_equal]") {}

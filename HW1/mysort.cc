@@ -1,5 +1,5 @@
 #include "mysort.h" // bubble_sort, divide_equal, merge_sort
-#include "common.h"
+#include "common.h" // errExit, fatal
 
 #include <argp.h>
 #include <sys/wait.h>
@@ -12,12 +12,22 @@
 
 using data_t = long long;
 
-#define PIPE_OPEN_FAILURE 2
-#define PIPE_CLOSE_FAILURE 3
-#define FDOPEN_FAILURE 4
+enum { READ, WRITE };
 
 static char args_doc[] = "FILE [FILES...]";
 
+/**
+ * @brief The Child struct
+ */
+struct Child {
+  pid_t pid;
+  int p2c[2]; // pipe from parent to child
+  int c2p[2]; // pipe from child to parent
+};
+
+/**
+ * @brief The arguments struct
+ */
 struct arguments {
   int num_processes = 4;
   int use_thread = 0;
@@ -27,7 +37,7 @@ struct arguments {
 };
 
 /**
- * @brief parse_opt
+ * @brief Parse command line options
  * @param key
  * @param arg
  * @param state
@@ -57,6 +67,40 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   return 0;
 }
 
+/**
+ * @brief Extract filenames from command line arguments
+ * @param args
+ * @return
+ */
+std::vector<std::string> ExtractFilesFromArgs(const arguments &args) {
+  // Put all files into a vector of strings
+  std::vector<std::string> files;
+  files.push_back(args.file);
+  for (int i = 0; args.files[i]; ++i) {
+    files.push_back(args.files[i]);
+  }
+
+  return files;
+}
+
+/**
+ * @brief Combine data from files into a vector
+ * @param files
+ * @todo Make data_t a template parameter?
+ * @return
+ */
+std::vector<data_t> ReadDataFromFiles(const std::vector<std::string> &files) {
+  // Read data from files
+  std::vector<data_t> data;
+  for (const auto &f : files) {
+    std::ifstream infile(f);
+    std::istream_iterator<data_t> input(infile);
+    std::copy(input, std::istream_iterator<data_t>(), std::back_inserter(data));
+  }
+
+  return data;
+}
+
 int main(int argc, char *argv[]) {
   // Parse command line arguments
   struct arguments args;
@@ -69,13 +113,16 @@ int main(int argc, char *argv[]) {
   int status = argp_parse(&argp, argc, argv, 0, 0, &args);
 
   if (status) {
-    fatal("Failed to parse arguments, error code: %d\n", status);
+    fatal("Failed to parse arguments, error code: %d.", status);
   }
 
   if (args.num_processes <= 0) {
-    cmdLineErr("Number of processes is not a positive integer: %d\n",
+    cmdLineErr("Number of processes is not a positive integer: %d.",
                args.num_processes);
   }
+
+  // TODO: change this back
+  args.num_processes = 3;
 
   DEBUG_PRINT("Number of processes: %d\n", args.num_processes);
   DEBUG_PRINT("Use threads: %d\n", args.use_thread);
@@ -85,32 +132,27 @@ int main(int argc, char *argv[]) {
   }
   DEBUG_PRINT("\n");
 
-  // Put all files into a vector
-  std::vector<std::string> files;
-  files.push_back(args.file);
-  for (int i = 0; args.files[i]; ++i) {
-    files.push_back(args.files[i]);
+  // Process command line arguments
+  const auto files = ExtractFilesFromArgs(args);
+  DEBUG_PRINT("Read data from: ");
+  for (const auto &f : files) {
+    DEBUG_PRINT("%s ", f.c_str());
   }
+  DEBUG_PRINT("\n");
 
-  // Read data from files
-  // TODO: change back after testing
-  std::vector<data_t> data = {4, 3, 2, 1, 8, 7, 6, 5};
-  args.num_processes = 2;
-  //  for (const auto &f : files) {
-  //    std::ifstream infile(f);
-  //    std::istream_iterator<data_t> input(infile);
-  //    std::copy(input, std::istream_iterator<data_t>(),
-  //    std::back_inserter(data));
-  //  }
+  // TODO: change this back
+  //  auto data = ReadDataFromFiles(files);
+  std::vector<data_t> data = {8, 7, 6, 5, 4, 3, 2, 1};
   DEBUG_PRINT("Number of integers: %zu\n", data.size());
 
   // If there's no data to sort, just exit
   if (data.empty())
     exit(EXIT_SUCCESS);
 
-  // Special case
+  // ====== Special case ======
   // single process or thread
   // or when the number to data to process <= num_processes
+  // just use bubble_sort on the entire data
   if (args.num_processes == 1 || data.size() <= args.num_processes) {
     bubble_sort(data.begin(), data.end());
 
@@ -119,65 +161,49 @@ int main(int argc, char *argv[]) {
     exit(EXIT_SUCCESS);
   }
 
+  // ====== Common case =======
+  // multiple processes
   // Divide array into N almost equal parts
   const auto split = divide_equal(data.size(), args.num_processes);
 
-  /**
-   * @brief The Child struct
-   */
-  struct Child {
-    pid_t pid;
-    int p2c[2]; // pipe from parent to child
-    int c2p[2]; // pipe from child to parent
-  };
-
   std::vector<Child> children(args.num_processes);
 
-  // Common case, multiple processes
   for (int i = 0; i < args.num_processes; ++i) {
     Child &child = children[i];
 
     // Create a pair of pipes for each child before fork
     if (pipe(child.p2c) == -1) {
-      fprintf(stderr, "Create pipe p2c failed\n");
-      exit(PIPE_OPEN_FAILURE);
+      errExit("[P] Create pipe p2c failed for child %d.", i);
     }
 
     if (pipe(child.c2p) == -1) {
-      fprintf(stderr, "Create pipe c2p failed\n");
-      exit(PIPE_OPEN_FAILURE);
+      errExit("[P] Create pipe c2p failed for child %d.", i);
     }
 
     // Fork a child process
     if ((child.pid = fork()) < 0) {
-      fprintf(stderr, "Fork failed\n");
-      exit(EXIT_FAILURE);
+      errExit("[P] Fork failed for child %d.", i);
     } else if (child.pid == 0) {
       // Child
-      DEBUG_PRINT("Child %d: %d\n", i, (int)getpid());
+      DEBUG_PRINT("Child %d, pid %d\n", i, (int)getpid());
 
-      // Close write end of p2c
-      if (close(child.p2c[1]) == -1) {
-        fprintf(stderr, "Close write end of p2c pipe failed\n");
-        exit(PIPE_CLOSE_FAILURE);
+      if (close(child.p2c[WRITE]) == -1) {
+        errExit("[C%d] Close write end of p2c pipe failed.", i);
       }
 
-      // Close read end of c2p
-      if (close(child.c2p[0]) == -1) {
-        fprintf(stderr, "Close read end of c2p pipe failed\n");
-        exit(PIPE_CLOSE_FAILURE);
+      if (close(child.c2p[READ]) == -1) {
+        errExit("[C%d] Close read end of c2p pipe failed.", i);
       }
 
       // Child read data from parent
-      // first convert pipe file handle to FILE object
-      FILE *fp2c_r = fdopen(child.p2c[0], "r");
+      FILE *fp2c_r = fdopen(child.p2c[READ], "r");
       if (fp2c_r == NULL) {
-        fprintf(stderr, "fdopen p2c read failed\n");
-        exit(FDOPEN_FAILURE);
+        errExit("[C%d] fdopen p2c read end failed.", i);
       }
 
       // Read data from parent
       const auto length = split[i + 1] - split[i];
+      // This allocation might be wasteful since data will be overriden
       std::vector<data_t> sub_data(length);
 
       size_t j = 0;
@@ -186,9 +212,9 @@ int main(int argc, char *argv[]) {
       }
 
       if (j != length) {
-        fprintf(stderr, "Data mismatch, expected: %zu, actual: %zu", length, j);
-        exit(EXIT_FAILURE);
+        fatal("[C%d] Data mismatch, expected: %zu, actual: %zu.", length, j);
       }
+      DEBUG_PRINT("[C%d] Read %zu data.\n", i, length);
 
       // Close read end
       fclose(fp2c_r);
@@ -197,10 +223,9 @@ int main(int argc, char *argv[]) {
       bubble_sort(sub_data.begin(), sub_data.end());
 
       // Write data back to parent
-      FILE *fc2p_w = fdopen(child.c2p[1], "w");
+      FILE *fc2p_w = fdopen(child.c2p[WRITE], "w");
       if (fc2p_w == NULL) {
-        fprintf(stderr, "fdopen c2p write failed\n");
-        exit(FDOPEN_FAILURE);
+        errExit("[C%d] fdopen c2p write end failed.", i);
       }
 
       for (const auto &d : sub_data) {
@@ -215,31 +240,26 @@ int main(int argc, char *argv[]) {
       // Parent
       DEBUG_PRINT("Parent: %d\n", (int)getpid());
 
-      // Close read end of p2c
-      if (close(child.p2c[0]) == -1) {
-        fprintf(stderr, "Close read end of p2c pipe failed\n");
-        exit(PIPE_CLOSE_FAILURE);
+      if (close(child.p2c[READ]) == -1) {
+        errExit("[C%d] Close read end of p2c pipe failed.", i);
       }
 
-      // Close write end of c2p
-      if (close(child.c2p[1]) == -1) {
-        fprintf(stderr, "Close write end of c2p pipe failed\n");
-        exit(PIPE_CLOSE_FAILURE);
+      if (close(child.c2p[WRITE]) == -1) {
+        errExit("[C%d] Close write end of c2p pipe failed.", i);
       }
 
       // Parent write to data to child
       // First convert pipe file handle to file object
-      FILE *fp2c_w = fdopen(child.p2c[1], "w");
+      FILE *fp2c_w = fdopen(child.p2c[WRITE], "w");
       if (fp2c_w == NULL) {
-        fprintf(stderr, "fdopen p2c write failed\n");
-        exit(FDOPEN_FAILURE);
+        errExit("[C%d] fdopen p2c write end failed.", i);
       }
 
       // Write data to child
       auto first = split[i];
       const auto last = split[i + 1];
       const auto length = last - first;
-      DEBUG_PRINT("Write to child %d, length %zu\n", i, length);
+      DEBUG_PRINT("[P] Write to child %d, length %zu\n", i, length);
 
       for (; first != last; ++first) {
         fprintf(fp2c_w, "%lld\n", data[first]);
@@ -255,30 +275,40 @@ int main(int argc, char *argv[]) {
     Child &child = children[i];
 
     // Start reading back from child
+    FILE *fc2p_r = fdopen(child.c2p[0], "r");
+    if (fc2p_r == NULL) {
+      errExit("[P] fdopen c2p read end failed.");
+    }
+
     auto first = split[i];
     const auto last = split[i + 1];
     const auto length = last - first;
 
-    FILE *fc2p_r = fdopen(child.c2p[0], "r");
-    if (fc2p_r == NULL) {
-      fprintf(stderr, "fdopen c2p read failed\n");
-      exit(FDOPEN_FAILURE);
+    while (!feof(fc2p_r)) {
+      fscanf(fc2p_r, "%lld\n", &data[first++]);
     }
 
-    DEBUG_PRINT("Child %d", i);
-    while (!feof(fc2p_r)) {
-      data_t d;
-      fscanf(fc2p_r, "%lld\n", &d);
-      DEBUG_PRINT("%lld ", d);
+    // Check if we read the correct amount of data
+    if (first != last) {
+      fatal("[P] Data mismatch from child %i, expected: %zu, actual: %zu.", i,
+            length, first + length - last);
     }
-    DEBUG_PRINT("\n");
+    DEBUG_PRINT("[P] Read %zu data from child %d.\n", length, i);
 
     fclose(fc2p_r);
 
     int status;
     waitpid(child.pid, &status, 0);
-    DEBUG_PRINT("child %d finished with status %d", i, status);
+    DEBUG_PRINT("[P] child %d exit with status %d.\n", i, status);
   }
+
+  // Print all data
+  for (const auto &d : data) {
+    DEBUG_PRINT("%lld ", d);
+  }
+  DEBUG_PRINT("\n");
+
+  // Do merge sort here
 
   return 0;
 }
