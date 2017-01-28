@@ -20,6 +20,7 @@ static char args_doc[] = "FILE [FILES...]";
  * @brief The Child struct
  */
 struct Child {
+  int id;
   pid_t pid;
   int p2c[2]; // pipe from parent to child
   int c2p[2]; // pipe from child to parent
@@ -101,6 +102,10 @@ std::vector<data_t> ReadDataFromFiles(const std::vector<std::string> &files) {
   return data;
 }
 
+void WriteRangeToPipe() {}
+
+void ReadPipeToRange() {}
+
 int main(int argc, char *argv[]) {
   // Parse command line arguments
   struct arguments args;
@@ -170,6 +175,7 @@ int main(int argc, char *argv[]) {
 
   for (int i = 0; i < args.num_processes; ++i) {
     Child &child = children[i];
+    child.id = i;
 
     // Create a pair of pipes for each child before fork
     if (pipe(child.p2c) == -1) {
@@ -187,6 +193,7 @@ int main(int argc, char *argv[]) {
       // Child
       DEBUG_PRINT("Child %d, pid %d\n", i, (int)getpid());
 
+      // For child, we close the write end of p2c and read end of c2p
       if (close(child.p2c[WRITE]) == -1) {
         errExit("[C%d] Close write end of p2c pipe failed.", i);
       }
@@ -201,7 +208,6 @@ int main(int argc, char *argv[]) {
         errExit("[C%d] fdopen p2c read end failed.", i);
       }
 
-      // Read data from parent
       const auto length = split[i + 1] - split[i];
       // This allocation might be wasteful since data will be overriden
       std::vector<data_t> sub_data(length);
@@ -222,7 +228,7 @@ int main(int argc, char *argv[]) {
       // Sort sub_data
       bubble_sort(sub_data.begin(), sub_data.end());
 
-      // Write data back to parent
+      // Child write data back to parent
       FILE *fc2p_w = fdopen(child.c2p[WRITE], "w");
       if (fc2p_w == NULL) {
         errExit("[C%d] fdopen c2p write end failed.", i);
@@ -240,6 +246,7 @@ int main(int argc, char *argv[]) {
       // Parent
       DEBUG_PRINT("Parent: %d\n", (int)getpid());
 
+      // For child, we close the read end of p2c and write end of c2p
       if (close(child.p2c[READ]) == -1) {
         errExit("[C%d] Close read end of p2c pipe failed.", i);
       }
