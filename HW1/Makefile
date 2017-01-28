@@ -2,15 +2,18 @@ TARGETS = makeinput mysort
 TESTS_DIR = tests
 TESTS = test_sort test_divide test_fork
 CC = g++
-CFLAGS = -lpthread -std=c++14 -I. -DDEBUG
+CFLAGS = -lpthread -std=c++14 -I. -DDEBUG -Wall
 
-all: $(TARGETS) $(TESTS)
+all: $(TARGETS)
+
+test: $(TESTS)
 
 makeinput: makeinput.cc
 	$(CC) $< -o $@
 
 mysort: mysort.cc
 	$(CC) $(CFLAGS) $< -o $@
+
 
 test_% : tests/test_%.cc
 	$(CC) $(CFLAGS) $< -o $@
