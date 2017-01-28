@@ -102,6 +102,7 @@ std::vector<data_t> ReadDataFromFiles(const std::vector<std::string> &files) {
   return data;
 }
 
+// TODO: refactor read/write
 void WriteRangeToPipe() {}
 
 void ReadPipeToRange() {}
