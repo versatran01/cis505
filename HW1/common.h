@@ -1,10 +1,26 @@
 #ifndef ERROR_FUNCTIONS_H
 #define ERROR_FUNCTIONS_H
 
+/// These functions are taken from LINUX PROGRAMMING INTERFACES 3RD EDITION
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #ifdef __GNUC__
 #define NORETURN __attribute__((__noreturn__))
 #else
 #define NORETURN
+#endif
+
+#ifdef DEBUG
+#define DEBUG_PRINT(...)                                                       \
+  do {                                                                         \
+    fprintf(stderr, __VA_ARGS__);                                              \
+  } while (false)
+#else
+#define DEBUG_PRINT(...)                                                       \
+  do {                                                                         \
+  } while (false)
 #endif
 
 /**
@@ -39,5 +55,18 @@ void errExitEN(int errnum, const char *format, ...) NORETURN;
  * @param format
  */
 void fatal(const char *format, ...) NORETURN;
+
+/**
+ * @brief cmdLineErr Diagnose errors in command-line argument usage
+ * @param format
+ */
+void usageErr(const char *format, ...) NORETURN;
+
+/**
+ * @brief cmdLineErr Similar to usageErr(), but is intended for diagnosing
+ * errors in the command-line arguments specified to a program
+ * @param format
+ */
+void cmdLineErr(const char *format, ...) NORETURN;
 
 #endif // ERROR_FUNCTIONS_H

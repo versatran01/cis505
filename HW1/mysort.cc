@@ -1,4 +1,5 @@
 #include "mysort.h" // bubble_sort, divide_equal, merge_sort
+#include "common.h"
 
 #include <argp.h>
 #include <sys/wait.h>
@@ -10,17 +11,6 @@
 #include <string>
 
 using data_t = long long;
-
-#ifdef DEBUG
-#define DEBUG_PRINT(...)                                                       \
-  do {                                                                         \
-    fprintf(stderr, __VA_ARGS__);                                              \
-  } while (false)
-#else
-#define DEBUG_PRINT(...)                                                       \
-  do {                                                                         \
-  } while (false)
-#endif
 
 #define PIPE_OPEN_FAILURE 2
 #define PIPE_CLOSE_FAILURE 3
@@ -79,14 +69,12 @@ int main(int argc, char *argv[]) {
   int status = argp_parse(&argp, argc, argv, 0, 0, &args);
 
   if (status) {
-    fprintf(stderr, "Failed to parse arguments, error code: %d\n", status);
-    exit(status);
+    fatal("Failed to parse arguments, error code: %d\n", status);
   }
 
   if (args.num_processes <= 0) {
-    fprintf(stderr, "Number of processes is not a positive integer: %d\n",
-            args.num_processes);
-    exit(EXIT_FAILURE);
+    cmdLineErr("Number of processes is not a positive integer: %d\n",
+               args.num_processes);
   }
 
   DEBUG_PRINT("Number of processes: %d\n", args.num_processes);
@@ -116,10 +104,9 @@ int main(int argc, char *argv[]) {
   //  }
   DEBUG_PRINT("Number of integers: %zu\n", data.size());
 
-  if (data.empty()) {
-    fprintf(stderr, "No data to sort");
-    exit(EXIT_FAILURE);
-  }
+  // If there's no data to sort, just exit
+  if (data.empty())
+    exit(EXIT_SUCCESS);
 
   // Special case
   // single process or thread
