@@ -1,12 +1,13 @@
 #include "mysort.h" // bubble_sort, divide_equal, merge_sort
 
 #include <argp.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
-#include <string>
 #include <fstream>
 #include <iostream>
 #include <istream>
+#include <string>
 
 using data_t = long long;
 
@@ -202,13 +203,25 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
       }
 
-      for (const auto &d : sub_data) {
-        printf("%lld ", d);
-      }
-      printf("\n");
-
       // Close read end
       fclose(fp2c_r);
+
+      // Sort sub_data
+      bubble_sort(sub_data.begin(), sub_data.end());
+
+      // Write data back to parent
+      FILE *fc2p_w = fdopen(child.c2p[1], "w");
+      if (fc2p_w == NULL) {
+        fprintf(stderr, "fdopen c2p write failed\n");
+        exit(FDOPEN_FAILURE);
+      }
+
+      for (const auto &d : sub_data) {
+        fprintf(fc2p_w, "%lld\n", d);
+      }
+
+      // Close write end
+      fclose(fc2p_w);
 
       exit(EXIT_SUCCESS);
     } else {
@@ -251,6 +264,34 @@ int main(int argc, char *argv[]) {
   }
 
   // Parent start reading from pipe
+  for (int i = 0; i < args.num_processes; ++i) {
+    Child &child = children[i];
+
+    // Start reading back from child
+    auto first = split[i];
+    const auto last = split[i + 1];
+    const auto length = last - first;
+
+    FILE *fc2p_r = fdopen(child.c2p[0], "r");
+    if (fc2p_r == NULL) {
+      fprintf(stderr, "fdopen c2p read failed\n");
+      exit(FDOPEN_FAILURE);
+    }
+
+    DEBUG_PRINT("Child %d", i);
+    while (!feof(fc2p_r)) {
+      data_t d;
+      fscanf(fc2p_r, "%lld\n", &d);
+      DEBUG_PRINT("%lld ", d);
+    }
+    DEBUG_PRINT("\n");
+
+    fclose(fc2p_r);
+
+    int status;
+    waitpid(child.pid, &status, 0);
+    DEBUG_PRINT("child %d finished with status %d", i, status);
+  }
 
   return 0;
 }

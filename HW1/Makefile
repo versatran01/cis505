@@ -11,9 +11,14 @@ test: $(TESTS)
 makeinput: makeinput.cc
 	$(CC) $< -o $@
 
+#mysort: mysort.o error_functions.o
+	#$(CC) $^ -o $@
+
+#%.o: %.cc
+	#$(CC) $(CFLAGS) $@ -c -o $<
+
 mysort: mysort.cc
 	$(CC) $(CFLAGS) $< -o $@
-
 
 test_% : tests/test_%.cc
 	$(CC) $(CFLAGS) $< -o $@
