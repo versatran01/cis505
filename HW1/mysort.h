@@ -3,19 +3,22 @@
 
 #include <algorithm>
 #include <cassert>
+#include <iostream>
 #include <iterator>
 #include <queue>
+#include <string>
 #include <vector>
 
 /**
- * @brief bubble_sort
+ * @brief Bubble sort with range
  * @param first Iterator to the first element in range
  * @param last Iterator to the last element in range
  * @param compare Functor that follows strict weak ordering
  */
-template <typename Iter, typename Comp = std::less<
-                             typename std::iterator_traits<Iter>::value_type>>
-void bubble_sort(Iter first, Iter last, Comp compare = Comp()) {
+template <
+    typename Iter,
+    typename Comp = std::less<typename std::iterator_traits<Iter>::value_type>>
+void BubbleSort(Iter first, Iter last, Comp compare = Comp()) {
   // Check if Iter is random access iterator, fail at compile time if it is not
   // This part is totally useless, just for fun
   using Iter_category = typename std::iterator_traits<Iter>::iterator_category;
@@ -28,8 +31,7 @@ void bubble_sort(Iter first, Iter last, Comp compare = Comp()) {
   Iter i, j;
   for (i = first; i != last; ++i)
     for (j = first; j < i; ++j)
-      if (compare(*i, *j))
-        std::iter_swap(i, j);
+      if (compare(*i, *j)) std::iter_swap(i, j);
 }
 
 /**
@@ -38,7 +40,7 @@ void bubble_sort(Iter first, Iter last, Comp compare = Comp()) {
  * @param k size of parts
  * @return a list of splitting indices, size k+1, starts from 0, ends in n
  */
-static std::vector<size_t> divide_equal(size_t n, size_t k) {
+static std::vector<size_t> DivideEqual(size_t n, size_t k) {
   size_t length = n / k;
   size_t remain = n % k;
 
@@ -55,25 +57,27 @@ static std::vector<size_t> divide_equal(size_t n, size_t k) {
 }
 
 /// Custom comparator for min heap
-template <typename P> struct DerefFirstGreater {
+template <typename P>
+struct DerefFirstGreater {
   bool operator()(const P &p1, const P &p2) {
     return *(p1.first) > *(p2.first);
   }
 };
 
-template <typename Iter> using IterPair = std::pair<Iter, Iter>;
+template <typename Iter>
+using IterPair = std::pair<Iter, Iter>;
 template <typename T>
 using MinHeap = std::priority_queue<T, std::vector<T>, DerefFirstGreater<T>>;
 
 /**
  * @brief A k way merge sort using min heap
  * @param data Input data
- * @param split Split from divide_equal
+ * @param split Split from DivideEqual
  * @return vector with merged data, sorted
  */
 template <typename T>
-std::vector<T> k_way_merge(const std::vector<T> &data,
-                           const std::vector<size_t> &split) {
+std::vector<T> MergeSort(const std::vector<T> &data,
+                         const std::vector<size_t> &split) {
   // Since input is a vector, Iter is guaranteed to be a random access iterator
   using Iter = typename std::vector<T>::const_iterator;
 
@@ -113,4 +117,31 @@ std::vector<T> k_way_merge(const std::vector<T> &data,
   return merged;
 }
 
-#endif // MYSORT_H
+/**
+ * @brief Print a range to stdout
+ */
+template <typename Iter>
+void PrintRangeToStdout(Iter first, Iter last, const char *delim = "\n") {
+  using T = typename std::iterator_traits<Iter>::value_type;
+  std::copy(first, last, std::ostream_iterator<T>(std::cout, delim));
+}
+
+/**
+ * @brief Read data from files and put into a single vector
+ * @param files
+ * @return
+ */
+template <typename T>
+std::vector<T> ReadDataFromFiles(const std::vector<std::string> &files) {
+  // Read data from files
+  std::vector<T> data;
+  for (const auto &f : files) {
+    std::ifstream infile(f);
+    std::istream_iterator<T> input(infile);
+    std::copy(input, std::istream_iterator<T>(), std::back_inserter(data));
+  }
+
+  return data;
+}
+
+#endif  // MYSORT_H

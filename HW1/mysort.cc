@@ -6,10 +6,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <fstream>
-#include <iostream>
-#include <istream>
-#include <string>
 
 using data_t = long long;
 
@@ -18,19 +14,9 @@ enum { READ, WRITE };
 static char args_doc[] = "FILE [FILES...]";
 
 /**
- * @brief The Child struct
- */
-struct Child {
-  int id;
-  pid_t pid;
-  int p2c[2];  // pipe from parent to child
-  int c2p[2];  // pipe from child to parent
-};
-
-/**
  * @brief The arguments struct
  */
-struct arguments {
+struct argp_args {
   int num_processes = 4;
   int use_thread = 0;
   int verbose = 0;  // verbose mode
@@ -39,24 +25,10 @@ struct arguments {
 };
 
 /**
- * @brief SortWorker
- * @param args
- * @return
- */
-void *SortWorker(void *args) {
-  // Do the sort here
-  // TODO: think about what to put in args and return values
-}
-
-/**
- * @brief Parse command line options
- * @param key
- * @param arg
- * @param state
- * @return error code
+ * @brief Parse command line options, used by argp
  */
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
-  struct arguments *args = (struct arguments *)state->input;
+  struct argp_args *args = (struct argp_args *)state->input;
   switch (key) {
     case 'n':
       args->num_processes = std::atoi(arg);
@@ -80,55 +52,12 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 }
 
 /**
- * @brief Extract filenames from command line arguments
- * @param args
- * @return
+ * @brief Parse command line arguments
+ * @return argp_args struct that contains all the options and inputs
  */
-std::vector<std::string> ExtractFilesFromArgs(const arguments &args) {
-  // Put all files into a vector of strings
-  std::vector<std::string> files;
-  files.push_back(args.file);
-  for (int i = 0; args.files[i]; ++i) {
-    files.push_back(args.files[i]);
-  }
-
-  return files;
-}
-
-/**
- * @brief Combine data from files into a vector
- * @param files
- * @todo Make data_t a template parameter?
- * @return
- */
-std::vector<data_t> ReadDataFromFiles(const std::vector<std::string> &files) {
-  // Read data from files
-  std::vector<data_t> data;
-  for (const auto &f : files) {
-    std::ifstream infile(f);
-    std::istream_iterator<data_t> input(infile);
-    std::copy(input, std::istream_iterator<data_t>(), std::back_inserter(data));
-  }
-
-  return data;
-}
-
-/**
- * @brief Print a range to stdout
- */
-template <typename Iter>
-void PrintRangeToStdout(Iter first, Iter last, const char *delim = "\n") {
-  std::copy(first, last, std::ostream_iterator<data_t>(std::cout, delim));
-}
-
-// TODO: refactorread/write
-void WriteRangeToPipe() {}
-
-void ReadPipeToRange() {}
-
-int main(int argc, char *argv[]) {
+argp_args ParseCmdArguments(int argc, char **argv) {
   // Parse command line arguments
-  struct arguments args;
+  struct argp_args args;
   struct argp_option options[] = {
       {0, 'n', "NUM_PROCESSES", 0, "Number of processes."},
       {0, 't', 0, 0, "Use threads instead of processes."},
@@ -145,6 +74,53 @@ int main(int argc, char *argv[]) {
     cmdLineErr("Number of processes is not a positive integer: %d.",
                args.num_processes);
   }
+
+  return args;
+}
+
+/**
+ * @brief The Child struct
+ */
+struct Child {
+  int id;
+  pid_t pid;
+  int p2c[2];  // pipe from parent to child
+  int c2p[2];  // pipe from child to parent
+};
+
+/**
+ * @brief SortWorker
+ * @param args
+ * @return
+ */
+void *SortWorker(void *args) {
+  // Do the sort here
+  // TODO: think about what to put in args and return values
+}
+
+/**
+ * @brief Extract filenames from arpg_args struct
+ * @return a vector of filenames to read data from
+ */
+std::vector<std::string> ExtractFilesFromArgs(const argp_args &args) {
+  // Put all files into a vector of strings
+  std::vector<std::string> files;
+  files.push_back(args.file);
+  for (int i = 0; args.files[i]; ++i) {
+    files.push_back(args.files[i]);
+  }
+
+  return files;
+}
+
+// TODO: refactorread/write
+void WriteRangeToPipe() {}
+
+void ReadPipeToRange() {}
+
+int main(int argc, char *argv[]) {
+  // Parse command line arguments
+  auto args = ParseCmdArguments(argc, argv);
 
   // TODO: change this back
   args.num_processes = 2;
@@ -179,14 +155,14 @@ int main(int argc, char *argv[]) {
   // just use bubble_sort on the entire data
   if (args.num_processes == 1 ||
       data.size() <= static_cast<size_t>(args.num_processes)) {
-    bubble_sort(data.begin(), data.end());
+    BubbleSort(data.begin(), data.end());
 
     PrintRangeToStdout(data.cbegin(), data.cend());
     exit(EXIT_SUCCESS);
   }
 
   // Split data into n almost equal parts
-  const auto split = divide_equal(data.size(), args.num_processes);
+  const auto split = DivideEqual(data.size(), args.num_processes);
 
   // ====== Common case: thread ======
   // multi threads
@@ -202,7 +178,7 @@ int main(int argc, char *argv[]) {
 
     // TODO: this part is the same as the multi process version, can refactor
     // Assume each part of data is sorted, just call merge sort directly
-    const auto merged = k_way_merge(data, split);
+    const auto merged = MergeSort(data, split);
     // Print to stdout
 
     exit(EXIT_SUCCESS);
@@ -266,7 +242,7 @@ int main(int argc, char *argv[]) {
       fclose(fp2c_r);
 
       // Sort sub_data
-      bubble_sort(sub_data.begin(), sub_data.end());
+      BubbleSort(sub_data.begin(), sub_data.end());
 
       // Child write data back to parent
       FILE *fc2p_w = fdopen(child.c2p[WRITE], "w");
@@ -356,7 +332,7 @@ int main(int argc, char *argv[]) {
   DEBUG_PRINT("\n");
 
   // Do merge sort here
-  const auto merged = k_way_merge(data, split);
+  const auto merged = MergeSort(data, split);
   // Output to stdout
   PrintRangeToStdout(merged.cbegin(), merged.cend());
 
