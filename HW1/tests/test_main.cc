@@ -3,6 +3,7 @@
 #include "mysort.h"
 
 using VecInt = std::vector<int>;
+using VecStr = std::vector<std::string>;
 using VecSizeT = std::vector<size_t>;
 
 TEST_CASE("Bubble sort", "[BubbleSort]") {
@@ -31,6 +32,20 @@ TEST_CASE("Bubble sort", "[BubbleSort]") {
     VecInt d = {3, 2, 1};
     BubbleSort(d.begin(), d.begin());
     VecInt s = {3, 2, 1};
+    REQUIRE(s == d);
+  }
+
+  SECTION("Sort with raw pointers") {
+    VecInt d = {3, 2, 1};
+    BubbleSort(&d[0], &d[d.size()]);
+    VecInt s = {1, 2, 3};
+    REQUIRE(s == d);
+  }
+
+  SECTION("Sort with strings") {
+    VecStr d = {"1", "10", "2", "11"};
+    BubbleSort(d.begin(), d.end());
+    VecStr s = {"1", "10", "11", "2"};
     REQUIRE(s == d);
   }
 }
@@ -70,7 +85,7 @@ TEST_CASE("Merge sort", "[MergeSort]") {
     REQUIRE(m == r);
   }
 
-  SECTION("k way merge sort") {
+  SECTION("K way merge sort") {
     VecInt d = {3, 4, 5, 0, 1, 2, 6, 7, 8};
     const auto s = DivideEqual(d.size(), 3);
     const auto m = MergeSort(d, s);

@@ -6,7 +6,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-
 using data_t = long long;
 
 enum { READ, WRITE };
@@ -18,7 +17,7 @@ static char args_doc[] = "FILE [FILES...]";
  */
 struct argp_args {
   int num_processes = 4;
-  int use_thread = 0;
+  int use_threads = 0;
   int verbose = 0;  // verbose mode
   char *file;       // need at least 1 file
   char **files;
@@ -34,7 +33,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       args->num_processes = std::atoi(arg);
       break;
     case 't':
-      args->use_thread = 1;
+      args->use_threads = 1;
       break;
     case 'v':
       args->verbose = 1;
@@ -89,13 +88,25 @@ struct Child {
 };
 
 /**
+ * @brief The ThreadArgs struct
+ */
+struct PthreadArgs {
+  int id;
+  data_t *first;
+  data_t *last;
+};
+
+/**
  * @brief SortWorker
  * @param args
  * @return
  */
 void *SortWorker(void *args) {
-  // Do the sort here
-  // TODO: think about what to put in args and return values
+  const PthreadArgs *thread_args = (const PthreadArgs *)args;
+  //  DEBUG_PRINT("Thread %d", thread_args->id);
+
+  BubbleSort(thread_args->first, thread_args->last);
+  pthread_exit(NULL);
 }
 
 /**
@@ -124,9 +135,10 @@ int main(int argc, char *argv[]) {
 
   // TODO: change this back
   args.num_processes = 2;
+  args.use_threads = 1;
 
   DEBUG_PRINT("Number of processes: %d\n", args.num_processes);
-  DEBUG_PRINT("Use threads: %d\n", args.use_thread);
+  DEBUG_PRINT("Use threads: %d\n", args.use_threads);
   DEBUG_PRINT("Input files: %s", args.file);
   for (int i = 0; args.files[i]; ++i) {
     DEBUG_PRINT(", %s", args.files[i]);
@@ -163,23 +175,36 @@ int main(int argc, char *argv[]) {
 
   // Split data into n almost equal parts
   const auto split = DivideEqual(data.size(), args.num_processes);
+  DEBUG_PRINT("Split: ");
+  for (const auto &s : split) {
+    DEBUG_PRINT("%zu ", s);
+  }
+  DEBUG_PRINT("\n");
 
   // ====== Common case: thread ======
   // multi threads
-  if (args.use_thread) {
+  if (args.use_threads) {
     std::vector<pthread_t> threads(args.num_processes);
+    std::vector<PthreadArgs> threads_args(args.num_processes);
     for (int i = 0; i < args.num_processes; ++i) {
       // Create a thread
+      threads_args[i].id = i;
+      threads_args[i].first = &data[split[i]];
+      threads_args[i].last = &data[split[i + 1]];
+      pthread_create(&threads[i], NULL, SortWorker, &threads_args[i]);
     }
 
-    for (int i = 0; i < args.num_processes; ++i) {
-      // Wait for thread
+    for (auto &thread : threads) {
+      const auto s = pthread_join(thread, NULL);
+      if (s != 0) errExitEN(s, "pthread join");
     }
 
     // TODO: this part is the same as the multi process version, can refactor
     // Assume each part of data is sorted, just call merge sort directly
     const auto merged = MergeSort(data, split);
+
     // Print to stdout
+    PrintRangeToStdout(merged.cbegin(), merged.cend());
 
     exit(EXIT_SUCCESS);
   }
