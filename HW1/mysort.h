@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cassert>
 #include <iostream>
+#include <fstream>
 #include <iterator>
 #include <queue>
 #include <string>

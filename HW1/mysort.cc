@@ -60,7 +60,6 @@ argp_args ParseCmdArguments(int argc, char **argv) {
   struct argp_option options[] = {
       {0, 'n', "NUM_PROCESSES", 0, "Number of processes."},
       {0, 't', 0, 0, "Use threads instead of processes."},
-      {0, 'v', 0, 0, "Verbose mode."},
       {0}};
   struct argp argp = {options, parse_opt, args_doc, 0};
   int status = argp_parse(&argp, argc, argv, 0, 0, &args);
@@ -125,10 +124,35 @@ std::vector<std::string> ExtractFilesFromArgs(const argp_args &args) {
 }
 
 // TODO: refactorread/write
-void WriteRangeToPipe() {}
 
-void ReadPipeToRange() {}
+void ReadRangeFromFile();
+void WriteRangeToFile();
 
+template <typename T>
+void SortMultiThread(std::vector<T> &data, const std::vector<size_t> &split,
+                     int n_threads) {
+  std::vector<pthread_t> threads(n_threads);
+  std::vector<PthreadArgs> threads_args(n_threads);
+  for (int i = 0; i < n_threads; ++i) {
+    // Create a thread
+    threads_args[i].id = i;
+    threads_args[i].first = &data[split[i]];
+    threads_args[i].last = &data[split[i + 1]];
+    pthread_create(&threads[i], NULL, SortWorker, &threads_args[i]);
+  }
+
+  for (auto &thread : threads) {
+    const auto s = pthread_join(thread, NULL);
+    if (s != 0) errExitEN(s, "pthread join");
+  }
+}
+
+void SortMultiProcess();
+
+/**
+ * @brief main
+ * @return
+ */
 int main(int argc, char *argv[]) {
   // Parse command line arguments
   auto args = ParseCmdArguments(argc, argv);
@@ -154,7 +178,7 @@ int main(int argc, char *argv[]) {
   DEBUG_PRINT("\n");
 
   // TODO: change this back
-  //  auto data = ReadDataFromFiles(files);
+  //  auto data = ReadDataFromFiles<data_t>(files);
   std::vector<data_t> data = {7, 6, 5, 4, 3, 2, 1, 0};
   DEBUG_PRINT("Number of integers: %zu\n", data.size());
 
@@ -184,25 +208,10 @@ int main(int argc, char *argv[]) {
   // ====== Common case: thread ======
   // multi threads
   if (args.use_threads) {
-    std::vector<pthread_t> threads(args.num_processes);
-    std::vector<PthreadArgs> threads_args(args.num_processes);
-    for (int i = 0; i < args.num_processes; ++i) {
-      // Create a thread
-      threads_args[i].id = i;
-      threads_args[i].first = &data[split[i]];
-      threads_args[i].last = &data[split[i + 1]];
-      pthread_create(&threads[i], NULL, SortWorker, &threads_args[i]);
-    }
-
-    for (auto &thread : threads) {
-      const auto s = pthread_join(thread, NULL);
-      if (s != 0) errExitEN(s, "pthread join");
-    }
-
-    // TODO: this part is the same as the multi process version, can refactor
-    // Assume each part of data is sorted, just call merge sort directly
+    // Multi-thread sort
+    SortMultiThread(data, split, args.num_processes);
+    // Merge sorted data
     const auto merged = MergeSort(data, split);
-
     // Print to stdout
     PrintRangeToStdout(merged.cbegin(), merged.cend());
 
@@ -350,15 +359,8 @@ int main(int argc, char *argv[]) {
     DEBUG_PRINT("[P] child %d exit with status %d.\n", i, status);
   }
 
-  // Print all data
-  for (const auto &d : data) {
-    DEBUG_PRINT("%lld ", d);
-  }
-  DEBUG_PRINT("\n");
-
-  // Do merge sort here
+  // Do merge sort here and print to stdout
   const auto merged = MergeSort(data, split);
-  // Output to stdout
   PrintRangeToStdout(merged.cbegin(), merged.cend());
 
   return 0;

@@ -12,7 +12,12 @@ parser.add_argument('--num_integers', '-i', nargs='?', default='1000',
 parser.add_argument('--run', '-r', action='store_true', help="run mysort")
 parser.add_argument('--num_processes', '-n', nargs='?', default='4',
                     help='number of processes')
+parser.add_argument('--evaluate', '-e', action='store_true', help="evaluate")
 args = parser.parse_args()
+
+if args.evaluate:
+    print("Evaluation")
+    exit()
 
 if args.run:
     print("Run mysort on input files")
