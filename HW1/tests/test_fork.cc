@@ -36,7 +36,6 @@ int main(int argc, char **argv) {
     memset(&buffer[0], 0, sizeof(buffer));
     while(!feof(fr)) {
       while (fgets(buffer, 16, fr) != NULL) {
-        memset(&buffer[0], 0, sizeof(buffer));
         size_t len = strlen(buffer);
         printf("len %zu\n", len);
         if ((len > 0) && (buffer[len - 1] == '\n')) break;
