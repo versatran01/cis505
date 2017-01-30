@@ -2,12 +2,14 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <vector>
+#include <string>
+#include <string.h>
 
 int main(int argc, char **argv) {
   int fdes[2];
   pid_t pid;
 
-  std::vector<int> data = {1, 2, 3, 4, 5};
+  std::vector<std::string> data = {"a", "abc", "abcdef"};
 
   if (pipe(fdes) == -1) {
     fprintf(stderr, "Failed to open pipe");
@@ -28,18 +30,18 @@ int main(int argc, char **argv) {
       fprintf(stderr, "error");
     }
 
-    std::vector<int> sub_data(data.size());
+    std::vector<std::string> sub_data;
 
-    int j = 0;
-    while (!feof(fr)) {
-      fscanf(fr, "%d\n", &sub_data[j++]);
+    char buffer[16];
+    memset(&buffer[0], 0, sizeof(buffer));
+    while(!feof(fr)) {
+      while (fgets(buffer, 16, fr) != NULL) {
+        memset(&buffer[0], 0, sizeof(buffer));
+        size_t len = strlen(buffer);
+        printf("len %zu\n", len);
+        if ((len > 0) && (buffer[len - 1] == '\n')) break;
+      }
     }
-    printf("j: %d\n", j);
-
-    for (const auto &d : sub_data) {
-      printf("%d ", d);
-    }
-    printf("\n");
 
     fclose(fr);
 
@@ -58,7 +60,7 @@ int main(int argc, char **argv) {
     }
 
     for (const auto &d : data) {
-      fprintf(fw, "%d\n", d);
+      fprintf(fw, "%s\n", d.c_str());
     }
 
     // close write end

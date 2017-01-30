@@ -1,5 +1,5 @@
-#include "mysort.h"  // bubble_sort, divide_equal, merge_sort
-#include "common.h"  // errExit, fatal
+#include "mysort.h" // bubble_sort, divide_equal, merge_sort
+#include "common.h" // errExit, fatal
 
 #include <argp.h>
 #include <pthread.h>
@@ -18,8 +18,8 @@ static char args_doc[] = "FILE [FILES...]";
 struct argp_args {
   int num_processes = 4;
   int use_threads = 0;
-  int verbose = 0;  // verbose mode
-  char *file;       // need at least 1 file
+  int verbose = 0; // verbose mode
+  char *file;      // need at least 1 file
   char **files;
 };
 
@@ -29,23 +29,23 @@ struct argp_args {
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   struct argp_args *args = (struct argp_args *)state->input;
   switch (key) {
-    case 'n':
-      args->num_processes = std::atoi(arg);
-      break;
-    case 't':
-      args->use_threads = 1;
-      break;
-    case 'v':
-      args->verbose = 1;
-    case ARGP_KEY_NO_ARGS:
-      argp_usage(state);
-    case ARGP_KEY_ARG:
-      args->file = arg;
-      args->files = &state->argv[state->next];
-      state->next = state->argc;
-      break;
-    default:
-      return ARGP_ERR_UNKNOWN;
+  case 'n':
+    args->num_processes = std::atoi(arg);
+    break;
+  case 't':
+    args->use_threads = 1;
+    break;
+  case 'v':
+    args->verbose = 1;
+  case ARGP_KEY_NO_ARGS:
+    argp_usage(state);
+  case ARGP_KEY_ARG:
+    args->file = arg;
+    args->files = &state->argv[state->next];
+    state->next = state->argc;
+    break;
+  default:
+    return ARGP_ERR_UNKNOWN;
   }
   return 0;
 }
@@ -82,8 +82,8 @@ argp_args ParseCmdArguments(int argc, char **argv) {
 struct Child {
   int id;
   pid_t pid;
-  int p2c[2];  // pipe from parent to child
-  int c2p[2];  // pipe from child to parent
+  int p2c[2]; // pipe from parent to child
+  int c2p[2]; // pipe from child to parent
 };
 
 /**
@@ -123,11 +123,30 @@ std::vector<std::string> ExtractFilesFromArgs(const argp_args &args) {
   return files;
 }
 
-// TODO: refactorread/write
+/**
+ * @brief ReadRangeFromFile
+ */
+void ReadRangeFromFile(data_t *first, data_t *last, FILE *file) {
+  while (!feof(file)) {
+    fscanf(file, "%lld\n", first++);
+  }
+  assert(first == last && "Read data mismatch");
+}
 
-void ReadRangeFromFile();
-void WriteRangeToFile();
+/**
+ * @brief WriteRangeToFile
+ */
+void WriteRangeToFile(data_t *first, data_t *last, FILE *file) {
+  while (first != last) {
+    fprintf(file, "%lld\n", *first++);
+  }
+}
 
+/**
+ * @brief A multi-threaded sort
+ * @param data will be modified
+ * @param split
+ */
 template <typename T>
 void SortMultiThread(std::vector<T> &data, const std::vector<size_t> &split,
                      int n_threads) {
@@ -143,7 +162,8 @@ void SortMultiThread(std::vector<T> &data, const std::vector<size_t> &split,
 
   for (auto &thread : threads) {
     const auto s = pthread_join(thread, NULL);
-    if (s != 0) errExitEN(s, "pthread join");
+    if (s != 0)
+      errExitEN(s, "pthread join");
   }
 }
 
@@ -151,7 +171,6 @@ void SortMultiProcess();
 
 /**
  * @brief main
- * @return
  */
 int main(int argc, char *argv[]) {
   // Parse command line arguments
@@ -184,7 +203,8 @@ int main(int argc, char *argv[]) {
   DEBUG_PRINT("Number of data: %zu\n", data.size());
 
   // If there's no data to sort, just exit
-  if (data.empty()) exit(EXIT_SUCCESS);
+  if (data.empty())
+    exit(EXIT_SUCCESS);
 
   // ====== Special case ======
   // single process or thread
@@ -263,15 +283,18 @@ int main(int argc, char *argv[]) {
       // This allocation might be wasteful since data will be overriden
       std::vector<data_t> sub_data(length);
 
-      size_t j = 0;
-      while (!feof(fp2c_r)) {
-        fscanf(fp2c_r, "%lld\n", &sub_data[j++]);
-      }
+      ReadRangeFromFile(&sub_data[0], &sub_data[length], fp2c_r);
 
-      if (j != length) {
-        fatal("[C%d] Data mismatch, expected: %zu, actual: %zu.", length, j);
-      }
-      DEBUG_PRINT("[C%d] Read %zu data.\n", i, length);
+      //      size_t j = 0;
+      //      while (!feof(fp2c_r)) {
+      //        fscanf(fp2c_r, "%lld\n", &sub_data[j++]);
+      //      }
+
+      //      if (j != length) {
+      //        fatal("[C%d] Data mismatch, expected: %zu, actual: %zu.",
+      //        length, j);
+      //      }
+      //      DEBUG_PRINT("[C%d] Read %zu data.\n", i, length);
 
       // Close read end
       fclose(fp2c_r);
@@ -285,9 +308,10 @@ int main(int argc, char *argv[]) {
         errExit("[C%d] fdopen c2p write end failed.", i);
       }
 
-      for (const auto &d : sub_data) {
-        fprintf(fc2p_w, "%lld\n", d);
-      }
+      //      for (const auto &d : sub_data) {
+      //        fprintf(fc2p_w, "%lld\n", d);
+      //      }
+      WriteRangeToFile(&sub_data[0], &sub_data[length], fc2p_w);
 
       // Close write end
       fclose(fc2p_w);
@@ -314,14 +338,16 @@ int main(int argc, char *argv[]) {
       }
 
       // Write data to child
-      auto first = split[i];
+      const auto first = split[i];
       const auto last = split[i + 1];
-      const auto length = last - first;
-      DEBUG_PRINT("[P] Write to child %d, length %zu\n", i, length);
+      //      const auto length = last - first;
+      //      DEBUG_PRINT("[P] Write to child %d, length %zu\n", i, length);
 
-      for (; first != last; ++first) {
-        fprintf(fp2c_w, "%lld\n", data[first]);
-      }
+      //      for (; first != last; ++first) {
+      //        fprintf(fp2c_w, "%lld\n", data[first]);
+      //      }
+
+      WriteRangeToFile(&data[first], &data[last], fp2c_w);
 
       // Close write end
       fclose(fp2c_w);
@@ -338,20 +364,23 @@ int main(int argc, char *argv[]) {
       errExit("[P] fdopen c2p read end failed.");
     }
 
-    auto first = split[i];
+    const auto first = split[i];
     const auto last = split[i + 1];
-    const auto length = last - first;
+    //    const auto length = last - first;
 
-    while (!feof(fc2p_r)) {
-      fscanf(fc2p_r, "%lld\n", &data[first++]);
-    }
+    ReadRangeFromFile(&data[first], &data[last], fc2p_r);
+
+    //    while (!feof(fc2p_r)) {
+    //      fscanf(fc2p_r, "%lld\n", &data[first++]);
+    //    }
 
     // Check if we read the correct amount of data
-    if (first != last) {
-      fatal("[P] Data mismatch from child %i, expected: %zu, actual: %zu.", i,
-            length, first + length - last);
-    }
-    DEBUG_PRINT("[P] Read %zu data from child %d.\n", length, i);
+    //    if (first != last) {
+    //      fatal("[P] Data mismatch from child %i, expected: %zu, actual:
+    //      %zu.", i,
+    //            length, first + length - last);
+    //    }
+    //    DEBUG_PRINT("[P] Read %zu data from child %d.\n", length, i);
 
     fclose(fc2p_r);
 
