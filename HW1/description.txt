@@ -1,0 +1,9 @@
+1) when N > 1, thread-based solution is generally faster than process-based solution.
+This is because creating processes has more overhead than creating threads.
+Another reason is that using multiple processes requires some sort of IPC to share data,
+while multiple threads share the same address space.
+
+2) The general trend for base lines is that the timing decreases dramatically at the begining
+with respect to the number of processes/threads. But at some point the decrease slows down.
+This is because the number of processes/threads reaches the max amount of cores that the CPU
+has. After that points, only a few of them can run trully in parallel.

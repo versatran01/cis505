@@ -8,7 +8,7 @@ input_prefix = "hw1_input"
 output_file = "hw1_output.txt"
 expected_file = "hw1_expected.txt"
 diff_file = "hw1_diff.txt"
-time_cmd = 'time -f "%U user, %e real"'
+time_cmd = 'time -f "%e"'
 timing_file = "timing.txt"
 
 
@@ -21,7 +21,7 @@ def make_input(num_files, num_data):
 
 
 def get_sort_cmd(files, num_processes, use_threads):
-    if args.use_threads:
+    if use_threads:
         sort_cmd = "./mysort -n {} -t".format(num_processes)
     else:
         sort_cmd = "./mysort -n {}".format(num_processes)
@@ -61,7 +61,6 @@ print("+++ Files:", files)
 
 if args.evaluate:
     print("*** Evaluate mysort with various options")
-    system('echo "" > {}'.format(timing_file))
 
     for u_t in range(2):
         for n_p in range(1, 21):
@@ -72,7 +71,7 @@ if args.evaluate:
             sort_cmd = get_sort_cmd(files, n_p, u_t)
             command = '{} {} > /dev/null'.format(time_cmd, sort_cmd)
             command = '{{ {} ; }} 2>> {}'.format(command, timing_file)
-            # print(command)
+            print(command)
             for i in range(10):
                 system(command)
     exit()

@@ -25,7 +25,7 @@ test_% : tests/test_%.cc
 
 pack:
 	rm -f submit-hw1.zip
-	zip -r submit-hw1.zip *.cc README Makefile graph*.pdf description*.txt graph*.png
+	zip -r submit-hw1.zip *.cc README Makefile graph*.pdf description*.txt graph*.png *.py
 
 clean::
 	rm -fv $(TARGETS) $(TESTS) $(OBJS)
