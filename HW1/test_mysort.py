@@ -8,6 +8,8 @@ input_prefix = "hw1_input"
 output_file = "hw1_output.txt"
 expected_file = "hw1_expected.txt"
 diff_file = "hw1_diff.txt"
+time_cmd = 'time -f "%U user, %e real"'
+timing_file = "timing.txt"
 
 
 def make_input(num_files, num_data):
@@ -16,6 +18,17 @@ def make_input(num_files, num_data):
                                                      i_file)
         print(command)
         system(command)
+
+
+def get_sort_cmd(files, num_processes, use_threads):
+    if args.use_threads:
+        sort_cmd = "./mysort -n {} -t".format(num_processes)
+    else:
+        sort_cmd = "./mysort -n {}".format(num_processes)
+
+    command = "{} {}".format(sort_cmd, files)
+    return command
+
 
 parser = ap.ArgumentParser()
 parser.add_argument('--num_files', '-f', nargs='?', default='1',
@@ -32,59 +45,63 @@ parser.add_argument('--baseline', '-b', action='store_true',
                     help="find the baseline size")
 args = parser.parse_args()
 
-# run make first so that we have the binary makeinput
-system('make clean && make')
-
 num_files = int(args.num_files)
 num_data = int(args.num_data)
 
-print("Number of files: ", num_files)
-print("Number of data: ", num_data)
-print("Use threads: ", args.use_threads)
+# run make first so that we have the binary makeinput
+system('make clean && make')
+make_input(num_files, num_data)
+files = glob("{}*.txt".format(input_prefix))
+files = " ".join(files)
+
+print("+++ Number of files:", num_files)
+print("+++ Number of data:", num_data)
+print("+++ Use threads:", args.use_threads)
+print("+++ Files:", files)
 
 if args.evaluate:
-    print("Evaluation")
-    files = glob("hw1_input*.txt")
-    files_with_space = " ".join(files)
-    system("rm {}".format(output_file))
-    time_command = 'time -f "%U user, %e real"'
-    command = '{} ./mysort -n 2 {} > /dev/null'.format(time_command, files_with_space)
-    command = '{{ {} ; }} 2>> {}'.format(command, output_file)
-    system(command)
+    print("*** Evaluate mysort with various options")
+    system('echo "" > {}'.format(timing_file))
+
+    for u_t in range(2):
+        for n_p in range(1, 21):
+            desc = "num_data: {}, num_processes: {}, use_threads: {}".format(num_data, n_p, u_t)
+            print(desc)
+            system('echo "{}" >> {}'.format(desc, timing_file))
+
+            sort_cmd = get_sort_cmd(files, n_p, u_t)
+            command = '{} {} > /dev/null'.format(time_cmd, sort_cmd)
+            command = '{{ {} ; }} 2>> {}'.format(command, timing_file)
+            # print(command)
+            for i in range(10):
+                system(command)
     exit()
 
+
 if args.run:
-    make_input(num_files, num_data)
     print("*** Run mysort on input files and check result")
-    files = glob("{}*.txt".format(input_prefix))
-    files_with_space = " ".join(files)
-    print("Files: {}".format(files_with_space))
 
-    if args.use_threads:
-        sort_cmd = "./mysort -n {} -t".format(args.num_processes)
-    else:
-        sort_cmd = "./mysort -n {}".format(args.num_processes)
+    sort_cmd = get_sort_cmd(files, args.num_processes, args.use_threads)
 
-    command = "{} {} > {}".format(sort_cmd, files_with_space, output_file)
+    # Redirect mysort result to output file
+    command = "{} > {}".format(sort_cmd, output_file)
     print(command)
     system(command)
 
-    command = "cat {} | sort -n > {}".format(files_with_space, expected_file)
+    # Use system sort on input files
+    command = "cat {} | sort -n > {}".format(files, expected_file)
     print(command)
     system(command)
 
+    # Redirect diff of output and system sort to diff file
     command = "diff {} {} > {}".format(output_file, expected_file, diff_file)
     print(command)
     system(command)
 
+    # Check correctness
     if (os.path.getsize(diff_file)):
         print("*** Diff is not empty, somethings wrong")
     else:
         print("*** Diff is empty, everything's good")
     exit()
-
-
-
-
-
 
