@@ -4,7 +4,7 @@ TESTS = test_main test_divide test_fork test_merge
 OBJS = mysort.o common.o
 
 CC = g++
-CFLAGS = -pthread -std=c++14 -I. -Wall -DDEBUG
+CFLAGS = -pthread -std=c++14 -I. -Wall
 
 all: $(TARGETS)
 

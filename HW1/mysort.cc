@@ -157,9 +157,9 @@ int main(int argc, char *argv[]) {
   // Parse command line arguments
   auto args = ParseCmdArguments(argc, argv);
 
-  // TODO: change this back
-  args.num_processes = 2;
-  args.use_threads = 1;
+  // TODO: this is for testing
+  //  args.num_processes = 2;
+  //  args.use_threads = 1;
 
   DEBUG_PRINT("Number of processes: %d\n", args.num_processes);
   DEBUG_PRINT("Use threads: %d\n", args.use_threads);
@@ -177,10 +177,11 @@ int main(int argc, char *argv[]) {
   }
   DEBUG_PRINT("\n");
 
-  // TODO: change this back
-  //  auto data = ReadDataFromFiles<data_t>(files);
-  std::vector<data_t> data = {7, 6, 5, 4, 3, 2, 1, 0};
-  DEBUG_PRINT("Number of integers: %zu\n", data.size());
+  // TODO: this is for testing
+  //  std::vector<data_t> data = {7, 6, 5, 4, 3, 2, 1, 0};
+
+  auto data = ReadDataFromFiles<data_t>(files);
+  DEBUG_PRINT("Number of data: %zu\n", data.size());
 
   // If there's no data to sort, just exit
   if (data.empty()) exit(EXIT_SUCCESS);
