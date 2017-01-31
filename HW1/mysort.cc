@@ -128,7 +128,9 @@ std::vector<std::string> ExtractFilesFromArgs(const argp_args &args) {
  */
 void ReadRangeFromFile(data_t *first, data_t *last, FILE *file) {
   while (!feof(file)) {
-    fscanf(file, "%lld\n", first++);
+    const auto res = fscanf(file, "%lld\n", first);
+    if (res == 1)
+      ++first;
   }
   assert(first == last && "Read data mismatch");
 }
