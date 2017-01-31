@@ -102,7 +102,7 @@ struct PthreadArgs {
  */
 void *SortWorker(void *args) {
   const PthreadArgs *thread_args = (const PthreadArgs *)args;
-  //  DEBUG_PRINT("Thread %d", thread_args->id);
+  DEBUG_PRINT("Thread %d", thread_args->id);
 
   BubbleSort(thread_args->first, thread_args->last);
   pthread_exit(NULL);
@@ -287,17 +287,6 @@ int main(int argc, char *argv[]) {
 
       ReadRangeFromFile(&sub_data[0], &sub_data[length], fp2c_r);
 
-      //      size_t j = 0;
-      //      while (!feof(fp2c_r)) {
-      //        fscanf(fp2c_r, "%lld\n", &sub_data[j++]);
-      //      }
-
-      //      if (j != length) {
-      //        fatal("[C%d] Data mismatch, expected: %zu, actual: %zu.",
-      //        length, j);
-      //      }
-      //      DEBUG_PRINT("[C%d] Read %zu data.\n", i, length);
-
       // Close read end
       fclose(fp2c_r);
 
@@ -310,9 +299,6 @@ int main(int argc, char *argv[]) {
         errExit("[C%d] fdopen c2p write end failed.", i);
       }
 
-      //      for (const auto &d : sub_data) {
-      //        fprintf(fc2p_w, "%lld\n", d);
-      //      }
       WriteRangeToFile(&sub_data[0], &sub_data[length], fc2p_w);
 
       // Close write end
@@ -340,16 +326,7 @@ int main(int argc, char *argv[]) {
       }
 
       // Write data to child
-      const auto first = split[i];
-      const auto last = split[i + 1];
-      //      const auto length = last - first;
-      //      DEBUG_PRINT("[P] Write to child %d, length %zu\n", i, length);
-
-      //      for (; first != last; ++first) {
-      //        fprintf(fp2c_w, "%lld\n", data[first]);
-      //      }
-
-      WriteRangeToFile(&data[first], &data[last], fp2c_w);
+      WriteRangeToFile(&data[split[i]], &data[split[i + 1]], fp2c_w);
 
       // Close write end
       fclose(fp2c_w);
@@ -366,23 +343,7 @@ int main(int argc, char *argv[]) {
       errExit("[P] fdopen c2p read end failed.");
     }
 
-    const auto first = split[i];
-    const auto last = split[i + 1];
-    //    const auto length = last - first;
-
-    ReadRangeFromFile(&data[first], &data[last], fc2p_r);
-
-    //    while (!feof(fc2p_r)) {
-    //      fscanf(fc2p_r, "%lld\n", &data[first++]);
-    //    }
-
-    // Check if we read the correct amount of data
-    //    if (first != last) {
-    //      fatal("[P] Data mismatch from child %i, expected: %zu, actual:
-    //      %zu.", i,
-    //            length, first + length - last);
-    //    }
-    //    DEBUG_PRINT("[P] Read %zu data from child %d.\n", length, i);
+    ReadRangeFromFile(&data[split[i]], &data[split[i + 1]], fc2p_r);
 
     fclose(fc2p_r);
 
