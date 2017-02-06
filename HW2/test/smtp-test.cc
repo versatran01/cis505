@@ -1,11 +1,10 @@
- #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "test.h"
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   if (argc != 2)
     panic("Syntax: %s <port>", argv[0]);
 
@@ -44,14 +43,16 @@ int main(int argc, char *argv[])
   expectToRead(&conn1, "354 *");
   expectNoMoreData(&conn1);
 
-  writeString(&conn1, "From: Benjamin Franklin <benjamin.franklin@localhost>\r\n");
+  writeString(&conn1,
+              "From: Benjamin Franklin <benjamin.franklin@localhost>\r\n");
   writeString(&conn1, "To: Linh Thi Xuan Phan <linhphan@localhost>\r\n");
   writeString(&conn1, "Date: Fri, 21 Oct 2016 18:29:11 -0400\r\n");
   writeString(&conn1, "Subject: Testing my new email account\r\n");
   writeString(&conn1, "\r\n");
   writeString(&conn1, "Linh,\r\n");
   writeString(&conn1, "\r\n");
-  writeString(&conn1, "I just wanted to see whether my new email account works.\r\n");
+  writeString(&conn1,
+              "I just wanted to see whether my new email account works.\r\n");
   writeString(&conn1, "\r\n");
   writeString(&conn1, "        - Ben\r\n");
   expectNoMoreData(&conn1);

@@ -1,15 +1,21 @@
 #ifndef __test_h__
 #define __test_h__
 
-#define panic(a...) do { fprintf(stderr, a); fprintf(stderr, "\n"); exit(1); } while (0) 
+#define panic(a...)                                                            \
+  do {                                                                         \
+    fprintf(stderr, a);                                                        \
+    fprintf(stderr, "\n");                                                     \
+    exit(1);                                                                   \
+  } while (0)
 
-// For each connection we keep a) its file descriptor, and b) a buffer that contains
-// any data we have read from the connection but not yet processed. This is necessary
-// because sometimes the server might send more bytes than we immediately expect.
+// For each connection we keep a) its file descriptor, and b) a buffer that
+// contains any data we have read from the connection but not yet processed.
+// This is necessary because sometimes the server might send more bytes than we
+// immediately expect.
 
 struct connection {
   int fd;
-  char *buf;
+
   int bytesInBuffer;
   int bufferSizeBytes;
 };

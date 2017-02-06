@@ -1,11 +1,10 @@
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "test.h"
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   if (argc != 2)
     panic("Syntax: %s <port>", argv[0]);
 
@@ -53,7 +52,8 @@ int main(int argc, char *argv[])
   expectToRead(&conn1, "");
   expectToRead(&conn1, "Linh,");
   expectToRead(&conn1, "");
-  expectToRead(&conn1, "I just wanted to see whether my new email account works.");
+  expectToRead(&conn1,
+               "I just wanted to see whether my new email account works.");
   expectToRead(&conn1, "");
   expectToRead(&conn1, "        - Ben");
   expectToRead(&conn1, ".");

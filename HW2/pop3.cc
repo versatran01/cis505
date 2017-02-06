@@ -1,10 +1,11 @@
-#include <stdlib.h>
-#include <stdio.h>
 #include <openssl/md5.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-void computeDigest(char *data, int dataLengthBytes, unsigned char *digestBuffer)
-{
-  /* The digest will be written to digestBuffer, which must be at least MD5_DIGEST_LENGTH bytes long */
+void computeDigest(char *data, int dataLengthBytes,
+                   unsigned char *digestBuffer) {
+  /* The digest will be written to digestBuffer, which must be at least
+   * MD5_DIGEST_LENGTH bytes long */
 
   MD5_CTX c;
   MD5_Init(&c);
@@ -12,8 +13,7 @@ void computeDigest(char *data, int dataLengthBytes, unsigned char *digestBuffer)
   MD5_Final(digestBuffer, &c);
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 
   /* Your code here */
 

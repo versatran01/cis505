@@ -2,8 +2,7 @@
 
 #include "test.h"
 
-int main(void)
-{
+int main(void) {
   struct connection conn1;
   initializeBuffers(&conn1, 5000);
 
@@ -40,7 +39,7 @@ int main(void)
   expectNoMoreData(&conn1);
 
   // Check whether the QUIT command works
- 
+
   writeString(&conn1, "QUIT\n");
   expectToRead(&conn1, "+OK Goodbye!");
   expectRemoteClose(&conn1);
