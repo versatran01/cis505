@@ -6,7 +6,7 @@ CFLAGS = -pthread -std=c++14 -I. -Wall -g
 all: $(TARGETS)
 
 echoserver: $(OBJS)
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ -ldl
 
 %.o: %.cc
 	$(CC) $(CFLAGS) $< -c -o $@

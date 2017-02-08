@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#define LOGURU_IMPLEMENTATION 1
+#include "loguru.hpp"
 #include "lpi.h"
 
 /**
@@ -67,5 +69,6 @@ int main(int argc, char *argv[]) {
     exit(EXIT_SUCCESS);
   }
 
-  return 0;
+  LOG_F(INFO, "Port number %d", args.port_no);
+  return EXIT_SUCCESS;
 }
