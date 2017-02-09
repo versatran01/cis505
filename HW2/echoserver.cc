@@ -4,13 +4,52 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
+#include <vector>
 
 #define LOGURU_IMPLEMENTATION 1
 #include "loguru.hpp"
 #include "lpi.h"
+
+#define READ_BUF_SIZE 512
+
+std::string ReadLine(int fd) {
+  std::string line;
+  const char delim = '\n';
+  char ch;
+
+  for (;;) {
+    // Read one char
+    const auto n = read(fd, &ch, 1);
+
+    // read() failed
+    if (n == -1) {
+      if (errno == EINTR) {
+        // Interrupted, restart read()
+        continue;
+      } else {
+        // Failed, exit
+        errExit("Read failed.");
+      }
+    }
+
+    // EOF, break
+    if (n == 0)
+      break;
+
+    // Read succeeded
+    // EOL, break
+    if (ch == delim)
+      break;
+    line += ch;
+  }
+
+  return line;
+}
 
 /**
  * @brief The arguments struct
@@ -139,6 +178,11 @@ int main(int argc, char *argv[]) {
     LOG_F(INFO, "New connection, fd={%d}, ip={%s}, port={%d}", connect_fd,
           client_ip, (int)client_addr.sin_port);
     DEBUG_PRINT("[%d] New connection.\n", connect_fd);
+
+    while (true) {
+      const auto mystr = ReadLine(connect_fd);
+      DEBUG_PRINT("%s", mystr.c_str());
+    }
   }
 
   return EXIT_SUCCESS;
