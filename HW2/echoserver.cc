@@ -17,12 +17,19 @@
 
 #define READ_BUF_SIZE 512
 
+/**
+ * @brief ReadLine
+ * @param fd
+ * @return
+ */
 std::string ReadLine(int fd) {
   std::string line;
-  const char delim = '\n';
+  const char lf = '\n';
+  const char cr = '\r';
   char ch;
 
   for (;;) {
+    bool got_cr = false;
     // Read one char
     const auto n = read(fd, &ch, 1);
 
@@ -42,9 +49,21 @@ std::string ReadLine(int fd) {
       break;
 
     // Read succeeded
-    // EOL, break
-    if (ch == delim)
+    // LF, just break
+    if (ch == lf)
       break;
+
+    // CR, dont append, mark it
+    if (ch == cr) {
+      got_cr = true;
+      continue;
+    }
+
+    // non-EOL, so append previous CR
+    if (got_cr)
+      line += cr;
+
+    // non-EOL, append
     line += ch;
   }
 
@@ -55,9 +74,9 @@ std::string ReadLine(int fd) {
  * @brief The arguments struct
  */
 struct argp_args {
-  int port_no = 10000; // port number
+  int port_no = 10000; // port number, default is 10000
   int print_name = 0;  // print name and seas login to stderr
-  int verbose = 0;     // verbose mode
+  int verbose = 0;     // verbose mode, log to stderr, otherwise log to file
   int backlog = 10;    // backlog option to listen
 };
 
@@ -174,14 +193,13 @@ int main(int argc, char *argv[]) {
     }
 
     inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, sizeof(client_ip));
-    // Why is client port different?
     LOG_F(INFO, "New connection, fd={%d}, ip={%s}, port={%d}", connect_fd,
           client_ip, (int)client_addr.sin_port);
     DEBUG_PRINT("[%d] New connection.\n", connect_fd);
 
     while (true) {
       const auto mystr = ReadLine(connect_fd);
-      DEBUG_PRINT("%s", mystr.c_str());
+      DEBUG_PRINT("%s\n", mystr.c_str());
     }
   }
 
