@@ -1,4 +1,4 @@
-TARGETS = smtp pop3 echoserver
+TARGETS = echoserver pop3 smtp
 OBJS = lpi.o echoserver.o
 CC = g++
 CFLAGS = -pthread -std=c++14 -I. -Wall -g
@@ -22,7 +22,7 @@ pack:
 	zip -r submit-hw2.zip *.cc README Makefile
 
 clean::
-	rm -fv $(TARGETS) *~ $(OBJS)
+	rm -fv $(TARGETS) *~ $(OBJS) *.log
 
 realclean:: clean
 	rm -fv cis505-hw2.zip
