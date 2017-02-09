@@ -80,6 +80,12 @@ int main(int argc, char *argv[]) {
     exit(EXIT_SUCCESS);
   }
 
+  // Setup log
+  if (!args.verbose) {
+    loguru::add_file("echoserver.log", loguru::Truncate, loguru::Verbosity_MAX);
+    loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
+  }
+
   LOG_F(INFO, "args: port_no={%d}", args.port_no);
   LOG_F(INFO, "args: backlog={%d}", args.backlog);
 
