@@ -1,4 +1,5 @@
 #include <argp.h>
+#include <arpa/inet.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -80,18 +81,21 @@ int main(int argc, char *argv[]) {
     exit(EXIT_SUCCESS);
   }
 
+  // TODO: force verbose
+  args.verbose = 1;
+
   // Setup log
   if (!args.verbose) {
-    loguru::add_file("echoserver.log", loguru::Truncate, loguru::Verbosity_MAX);
     loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
+    loguru::add_file("echoserver.log", loguru::Truncate, loguru::Verbosity_MAX);
   }
 
   LOG_F(INFO, "args: port_no={%d}", args.port_no);
   LOG_F(INFO, "args: backlog={%d}", args.backlog);
 
   // Create a socket
-  int listen_fd;
-  if ((listen_fd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+  int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+  if (listen_fd == -1) {
     errExit("Server: failed to create listen socket.");
   }
 
@@ -105,7 +109,8 @@ int main(int argc, char *argv[]) {
   server_addr.sin_port = htons(args.port_no);
 
   // Bind to an address
-  if (bind(listen_fd, (sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+  int ret = bind(listen_fd, (sockaddr *)&server_addr, sizeof(server_addr));
+  if (ret == -1) {
     errExit("Server: failed to bind listen socket.");
   }
 
@@ -118,9 +123,22 @@ int main(int argc, char *argv[]) {
 
   LOG_F(INFO, "Start listening to connections");
 
+  sockaddr_in client_addr;
+  socklen_t sin_size = sizeof(client_addr);
+  char client_ip[INET_ADDRSTRLEN];
+
   // Main accept loop
   while (true) {
-    break;
+    int connect_fd = accept(listen_fd, (sockaddr *)&client_addr, &sin_size);
+    if (connect_fd == -1) {
+      LOG_F(WARNING, "Accept failed, port={%d}", (int)server_addr.sin_port);
+    }
+
+    inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, sizeof(client_ip));
+    // Why is client port different?
+    LOG_F(INFO, "New connection, fd={%d}, ip={%s}, port={%d}", connect_fd,
+          client_ip, (int)client_addr.sin_port);
+    DEBUG_PRINT("[%d] New connection.\n", connect_fd);
   }
 
   return EXIT_SUCCESS;

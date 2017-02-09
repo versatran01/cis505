@@ -12,6 +12,7 @@
 #define NORETURN
 #endif
 
+#define DEBUG 1
 #ifdef DEBUG
 #define DEBUG_PRINT(...)                                                       \
   do {                                                                         \
