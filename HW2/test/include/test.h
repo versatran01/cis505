@@ -15,7 +15,7 @@
 
 struct connection {
   int fd;
-
+  char *buf;
   int bytesInBuffer;
   int bufferSizeBytes;
 };

@@ -4,21 +4,43 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <string>
 #include <vector>
+
+#include "string_algorithm.h"
 
 #define LOGURU_IMPLEMENTATION 1
 #include "loguru.hpp"
 #include "lpi.h"
 
 /**
- * @brief ReadLine
- * @param fd
- * @return
+ * @brief Write a string to socket, append <CRLF>
+ */
+void WriteLine(int fd, std::string line) {
+  line.append("\r\n");
+  const int len = line.size();
+  int num_sent = 0;
+
+  while (num_sent < len) {
+    int n = write(fd, &line.data()[num_sent], len - num_sent);
+    // write() failed
+    if (n == -1) {
+      if (errno == EINTR) {
+        // Interrupted, restart write
+        continue;
+      }
+
+      // Failed, exit
+      errExit("Read failed.");
+    }
+    num_sent += n;
+  }
+}
+
+/**
+ * @brief Read an entire line from socket
  */
 std::string ReadLine(int fd) {
   std::string line;
@@ -36,10 +58,10 @@ std::string ReadLine(int fd) {
       if (errno == EINTR) {
         // Interrupted, restart read()
         continue;
-      } else {
-        // Failed, exit
-        errExit("Read failed.");
       }
+
+      // Failed, exit
+      errExit("Read failed.");
     }
 
     // EOF, break
@@ -194,10 +216,37 @@ int main(int argc, char *argv[]) {
     LOG_F(INFO, "New connection, fd={%d}, ip={%s}, port={%d}", connect_fd,
           client_ip, (int)client_addr.sin_port);
     DEBUG_PRINT("[%d] New connection.\n", connect_fd);
+    auto greeting = "+OK Server ready (Author: Chao Qu / quchao)";
+    WriteLine(connect_fd, greeting);
 
     while (true) {
-      auto command = ReadLine(connect_fd);
-      DEBUG_PRINT("%s\n", command.c_str());
+      auto request = ReadLine(connect_fd);
+      trim(request);
+      DEBUG_PRINT("[%d] C: %s\n", connect_fd, request.c_str());
+
+      // Extract the first 4 chars
+      auto command = request.substr(0, 4);
+      // Convert to upper case
+      to_upper(command);
+      // Check if it is ECHO or QUIT
+      if (command == "ECHO") {
+        auto text = request.substr(4);
+        trim_front(text);
+        auto response = std::string("+OK ") + text;
+        WriteLine(connect_fd, response);
+        DEBUG_PRINT("[%d] S: %s\n", connect_fd, response.c_str());
+      } else if (command == "QUIT") {
+        auto response = std::string("+OK Goodbye!");
+        WriteLine(connect_fd, response);
+        DEBUG_PRINT("[%d] S: %s\n", connect_fd, response.c_str());
+        close(connect_fd);
+        DEBUG_PRINT("[%d] Connection closed\n", connect_fd);
+        break;
+      } else {
+        auto response = std::string("-ERR Unknown command");
+        WriteLine(connect_fd, response);
+        DEBUG_PRINT("[%d] S: %s\n", connect_fd, response.c_str());
+      }
     }
   }
 
