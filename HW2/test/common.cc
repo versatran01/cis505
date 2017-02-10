@@ -122,7 +122,7 @@ void expectToRead(struct connection *conn, const char *data)
       break;
 
     if (conn->bytesInBuffer >= conn->bufferSizeBytes)
-      panic("Read %d bytes, but no LF found", conn->bufferSizeBytes);
+      panic("Read %d bytes, but no CRLF found", conn->bufferSizeBytes);
 
     int bytesRead = read(conn->fd, &conn->buf[conn->bytesInBuffer], conn->bufferSizeBytes - conn->bytesInBuffer);
     if (bytesRead < 0)
@@ -137,10 +137,13 @@ void expectToRead(struct connection *conn, const char *data)
 
   // Get rid of the LF (or, if it is preceded by a CR, of both the CR and the LF)
 
-  if ((lfpos>0) && (conn->buf[lfpos-1] == '\r'))
-    conn->buf[lfpos-1] = 0;
-  else
+  bool crMissing = false;
+  if ((lfpos==0) || (conn->buf[lfpos-1] != '\r')) {
+    crMissing = true;
     conn->buf[lfpos] = 0;
+  } else {
+    conn->buf[lfpos-1] = 0;
+  }
 
   // Check whether the server's actual response matches the expected response
   // Note: The expected response might end in a wildcard (*) in which case
@@ -160,10 +163,14 @@ void expectToRead(struct connection *conn, const char *data)
 
   // Annotate the output to indicate whether the response matched the expectation.
 
-  if (match) 
-    printf(" [OK]\n");
-  else
+  if (match) {
+    if (crMissing)
+      printf(" [Terminated by LF, not by CRLF]\n");
+    else 
+      printf(" [OK]\n");
+  } else {
     log(" [Expected: '", data, strlen(data), "']\n");
+  }
 
   // 'Eat' the line we just parsed. However, keep in mind that there might still be
   // more bytes in the buffer (e.g., another line, or a part of one), so we have to

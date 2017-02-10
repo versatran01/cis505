@@ -15,13 +15,13 @@ int main(void)
 
   // Check whether the ECHO command works
 
-  writeString(&conn1, "ECHO Hello world!\n");
+  writeString(&conn1, "ECHO Hello world!\r\n");
   expectToRead(&conn1, "+OK Hello world!");
   expectNoMoreData(&conn1);
 
   // Check whether the server rejects unknown commands
 
-  writeString(&conn1, "BLAH\n");
+  writeString(&conn1, "BLAH\r\n");
   expectToRead(&conn1, "-ERR Unknown command");
   expectNoMoreData(&conn1);
 
@@ -30,18 +30,18 @@ int main(void)
   writeString(&conn1, "ECH");
   expectNoMoreData(&conn1);
   sleep(1);
-  writeString(&conn1, "O blah\nEC");
+  writeString(&conn1, "O blah\r\nEC");
   expectToRead(&conn1, "+OK blah");
   expectNoMoreData(&conn1);
   sleep(1);
-  writeString(&conn1, "HO blubb\nECHO xyz\n");
+  writeString(&conn1, "HO blubb\r\nECHO xyz\r\n");
   expectToRead(&conn1, "+OK blubb");
   expectToRead(&conn1, "+OK xyz");
   expectNoMoreData(&conn1);
 
   // Check whether the QUIT command works
  
-  writeString(&conn1, "QUIT\n");
+  writeString(&conn1, "QUIT\r\n");
   expectToRead(&conn1, "+OK Goodbye!");
   expectRemoteClose(&conn1);
   closeConnection(&conn1);
