@@ -15,8 +15,6 @@
 #include "loguru.hpp"
 #include "lpi.h"
 
-#define READ_BUF_SIZE 512
-
 /**
  * @brief ReadLine
  * @param fd
@@ -198,8 +196,8 @@ int main(int argc, char *argv[]) {
     DEBUG_PRINT("[%d] New connection.\n", connect_fd);
 
     while (true) {
-      const auto mystr = ReadLine(connect_fd);
-      DEBUG_PRINT("%s\n", mystr.c_str());
+      auto command = ReadLine(connect_fd);
+      DEBUG_PRINT("%s\n", command.c_str());
     }
   }
 

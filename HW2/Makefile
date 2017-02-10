@@ -2,6 +2,8 @@ TARGETS = echoserver pop3 smtp
 OBJS = lpi.o echoserver.o
 CC = g++
 CFLAGS = -pthread -std=c++14 -I. -Wall -g
+TESTS_DIR = tests
+TESTS = test_main
 
 all: $(TARGETS)
 
@@ -22,7 +24,12 @@ pack:
 	zip -r submit-hw2.zip *.cc README Makefile
 
 clean::
-	rm -fv $(TARGETS) *~ $(OBJS) *.log
+	rm -fv $(TARGETS) *~ $(OBJS) *.log $(TESTS)
 
 realclean:: clean
 	rm -fv cis505-hw2.zip
+
+tests : $(TESTS)
+
+test_% : tests/test_%.cc
+	$(CC) $(CFLAGS) $< -o $@
