@@ -45,3 +45,30 @@ TEST_CASE("To lower copy", "[to_lower_copy]") {
     REQUIRE(result == "abc +-*/.");
   }
 }
+
+TEST_CASE("Trim", "[trim]") {
+  SECTION("Trim front with no space") {
+    const auto result = trim_front_copy("abc");
+    REQUIRE(result == "abc");
+  }
+
+  SECTION("Trim front with space") {
+    const auto result = trim_front_copy("   abc");
+    REQUIRE(result == "abc");
+  }
+
+  SECTION("Trim back with space") {
+    const auto result = trim_back_copy("abc   ");
+    REQUIRE(result == "abc");
+  }
+
+  SECTION("Trim back with no space") {
+    const auto result = trim_back_copy("   abc");
+    REQUIRE(result == "   abc");
+  }
+
+  SECTION("Trim both") {
+    const auto result = trim_copy("   abc   ");
+    REQUIRE(result == "abc");
+  }
+}
