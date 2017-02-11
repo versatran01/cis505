@@ -17,7 +17,26 @@
 #include "lpi.h"
 
 /**
- * @brief Write a string to socket, append <CRLF>
+ * @brief listen_fd Global so that signal handler can see this
+ */
+int listen_fd = -1;
+
+/**
+ * @brief The Connection struct, RAII
+ */
+struct Connection {
+  int fd;
+  Connection(int fd) : fd(fd) {}
+  ~Connection() {
+    close(fd);
+    LOG_F(INFO, "Connection closed, fd={%d}", fd);
+  }
+};
+
+/**
+ * @brief WriteLine
+ * @param fd
+ * @param line
  */
 void WriteLine(int fd, std::string line) {
   line.append("\r\n");
@@ -41,7 +60,9 @@ void WriteLine(int fd, std::string line) {
 }
 
 /**
- * @brief Read an entire line from socket
+ * @brief Read an entire line from socket file descriptor
+ * @param fd Socket file descriptor
+ * @return A string that contains the line
  */
 std::string ReadLine(int fd) {
   std::string line;
@@ -92,7 +113,67 @@ std::string ReadLine(int fd) {
 }
 
 /**
- * @brief The arguments struct
+ * @brief Handle connection with client, cleans up automatically
+ * @param fd Socket file descriptor
+ */
+void HandleConnection(int fd) {
+  Connection conn(fd);
+
+  // Send greeting
+  auto greeting = "+OK Server ready (Author: Chao Qu / quchao)";
+  WriteLine(conn.fd, greeting);
+
+  // Handle client
+  while (true) {
+    auto request = ReadLine(conn.fd);
+    trim(request);
+    DEBUG_PRINT("[%d] C: %s\n", conn.fd, request.c_str());
+    LOG_F(INFO, "Read from fd={%d}, str={%s}", conn.fd, request.c_str());
+
+    // Extract the first 4 chars as command
+    auto command = request.substr(0, 4);
+    // Convert to upper case
+    to_upper(command);
+
+    // Check if it is ECHO or QUIT
+    if (command == "ECHO") {
+      auto text = request.substr(4);
+      trim_front(text);
+      auto response = std::string("+OK ") + text;
+      WriteLine(conn.fd, response);
+      DEBUG_PRINT("[%d] S: %s\n", conn.fd, response.c_str());
+      LOG_F(INFO, "cmd={ECHO}, Write to fd={%d}, str={%s}", conn.fd,
+            response.c_str());
+    } else if (command == "QUIT") {
+      auto response = std::string("+OK Goodbye!");
+      WriteLine(conn.fd, response);
+      DEBUG_PRINT("[%d] S: %s\n", conn.fd, response.c_str());
+      LOG_F(INFO, "cmd={QUIT}, Write to fd={%d}, str={%s}", conn.fd,
+            response.c_str());
+      DEBUG_PRINT("[%d] Connection closed\n", conn.fd);
+      return; // Connection should close automatically
+    } else {
+      auto response = std::string("-ERR Unknown command");
+      WriteLine(conn.fd, response);
+      DEBUG_PRINT("[%d] S: %s\n", conn.fd, response.c_str());
+      LOG_F(INFO, "cmd={UNKNOWN}, Write to fd={%d}, str={%s}", conn.fd,
+            response.c_str());
+    }
+  }
+}
+
+/**
+ * @brief sigint_handler
+ * @param sig
+ */
+void SigintHandler(int sig) {
+  close(listen_fd);
+  LOG_F(INFO, "Close listen socket, fd={%d}, sig={SIGINT}", listen_fd);
+  exit(EXIT_SUCCESS);
+}
+
+/**
+ * @brief The argp_args struct
  */
 struct argp_args {
   int port_no = 10000; // port number, default is 10000
@@ -173,12 +254,24 @@ int main(int argc, char *argv[]) {
   LOG_F(INFO, "args: backlog={%d}", args.backlog);
 
   // Create a socket
-  int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+  listen_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (listen_fd == -1) {
     errExit("Server: failed to create listen socket.");
   }
 
   LOG_F(INFO, "Create listen socket, fd={%d}", listen_fd);
+
+  // Setup SIGINT handler
+  struct sigaction sa;
+  sa.sa_handler = SigintHandler;
+  sa.sa_flags = 0; // or SA_RESTART
+  sigemptyset(&sa.sa_mask);
+
+  if (sigaction(SIGINT, &sa, NULL) == -1) {
+    errExit("Failed to set SIGINT handler");
+  }
+
+  LOG_F(INFO, "Set SIGINT handler");
 
   // Prepare sockaddr
   sockaddr_in server_addr;
@@ -208,6 +301,7 @@ int main(int argc, char *argv[]) {
 
   // Main accept loop
   while (true) {
+    // Accept connection
     int connect_fd = accept(listen_fd, (sockaddr *)&client_addr, &sin_size);
     if (connect_fd == -1) {
       LOG_F(WARNING, "Accept failed, port={%d}", (int)server_addr.sin_port);
@@ -216,39 +310,11 @@ int main(int argc, char *argv[]) {
     inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, sizeof(client_ip));
     LOG_F(INFO, "New connection, fd={%d}, ip={%s}, port={%d}", connect_fd,
           client_ip, (int)client_addr.sin_port);
-    DEBUG_PRINT("[%d] New connection.\n", connect_fd);
-    auto greeting = "+OK Server ready (Author: Chao Qu / quchao)";
-    WriteLine(connect_fd, greeting);
+    DEBUG_PRINT("[%d] New connection\n", connect_fd);
 
-    while (true) {
-      auto request = ReadLine(connect_fd);
-      trim(request);
-      DEBUG_PRINT("[%d] C: %s\n", connect_fd, request.c_str());
-
-      // Extract the first 4 chars
-      auto command = request.substr(0, 4);
-      // Convert to upper case
-      to_upper(command);
-      // Check if it is ECHO or QUIT
-      if (command == "ECHO") {
-        auto text = request.substr(4);
-        trim_front(text);
-        auto response = std::string("+OK ") + text;
-        WriteLine(connect_fd, response);
-        DEBUG_PRINT("[%d] S: %s\n", connect_fd, response.c_str());
-      } else if (command == "QUIT") {
-        auto response = std::string("+OK Goodbye!");
-        WriteLine(connect_fd, response);
-        DEBUG_PRINT("[%d] S: %s\n", connect_fd, response.c_str());
-        close(connect_fd);
-        DEBUG_PRINT("[%d] Connection closed\n", connect_fd);
-        break;
-      } else {
-        auto response = std::string("-ERR Unknown command");
-        WriteLine(connect_fd, response);
-        DEBUG_PRINT("[%d] S: %s\n", connect_fd, response.c_str());
-      }
-    }
+    // Create a thread to handle connection and detach
+    std::thread worker(HandleConnection, connect_fd);
+    worker.detach();
   }
 
   return EXIT_SUCCESS;

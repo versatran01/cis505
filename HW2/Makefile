@@ -3,7 +3,7 @@ OBJS = lpi.o echoserver.o
 CC = g++
 CFLAGS = -pthread -std=c++14 -I. -Wall -g
 TESTS_DIR = tests
-TESTS = test_main test_thread
+TESTS = test_main test_thread test_signal
 
 all: $(TARGETS)
 
