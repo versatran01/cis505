@@ -49,6 +49,7 @@ bool WriteLine(int fd, std::string line) {
     if (n == -1) {
       if (errno == EINTR) {
         // Interrupted, restart write
+        LOG_F(WARNING, "Write interrupted, fd={%d}", fd);
         return false;
       }
 
@@ -81,6 +82,7 @@ bool ReadLine(int fd, std::string &line) {
     // read() failed
     if (n == -1) {
       if (errno == EINTR) {
+        LOG_F(WARNING, "Read interrupted, fd={%d}", fd);
         // Interrupted, so there might be a signal
         // continue;
         return false;
