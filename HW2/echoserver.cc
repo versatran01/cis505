@@ -38,7 +38,7 @@ struct Connection {
  * @param fd
  * @param line
  */
-void WriteLine(int fd, std::string line) {
+bool WriteLine(int fd, std::string line) {
   line.append("\r\n");
   const int len = line.size();
   int num_sent = 0;
@@ -49,7 +49,7 @@ void WriteLine(int fd, std::string line) {
     if (n == -1) {
       if (errno == EINTR) {
         // Interrupted, restart write
-        continue;
+        return false;
       }
 
       // Failed, exit
@@ -57,15 +57,18 @@ void WriteLine(int fd, std::string line) {
     }
     num_sent += n;
   }
+
+  return true;
 }
 
 /**
  * @brief Read an entire line from socket file descriptor
  * @param fd Socket file descriptor
- * @return A string that contains the line
+ * @param line
+ * @return True when read succeeded, false when read interrupted by signal
  */
-std::string ReadLine(int fd) {
-  std::string line;
+bool ReadLine(int fd, std::string &line) {
+  line.clear();
   const char lf = '\n';
   const char cr = '\r';
   char ch;
@@ -78,8 +81,9 @@ std::string ReadLine(int fd) {
     // read() failed
     if (n == -1) {
       if (errno == EINTR) {
-        // Interrupted, restart read()
-        continue;
+        // Interrupted, so there might be a signal
+        // continue;
+        return false;
       }
 
       // Failed, exit
@@ -109,7 +113,7 @@ std::string ReadLine(int fd) {
     line += ch;
   }
 
-  return line;
+  return true;
 }
 
 /**
@@ -125,7 +129,8 @@ void HandleConnection(int fd) {
 
   // Handle client
   while (true) {
-    auto request = ReadLine(conn.fd);
+    std::string request;
+    ReadLine(conn.fd, request);
     trim(request);
     DEBUG_PRINT("[%d] C: %s\n", conn.fd, request.c_str());
     LOG_F(INFO, "Read from fd={%d}, str={%s}", conn.fd, request.c_str());
@@ -141,12 +146,14 @@ void HandleConnection(int fd) {
       trim_front(text);
       auto response = std::string("+OK ") + text;
       WriteLine(conn.fd, response);
+
       DEBUG_PRINT("[%d] S: %s\n", conn.fd, response.c_str());
       LOG_F(INFO, "cmd={ECHO}, Write to fd={%d}, str={%s}", conn.fd,
             response.c_str());
     } else if (command == "QUIT") {
       auto response = std::string("+OK Goodbye!");
       WriteLine(conn.fd, response);
+
       DEBUG_PRINT("[%d] S: %s\n", conn.fd, response.c_str());
       LOG_F(INFO, "cmd={QUIT}, Write to fd={%d}, str={%s}", conn.fd,
             response.c_str());
@@ -155,6 +162,7 @@ void HandleConnection(int fd) {
     } else {
       auto response = std::string("-ERR Unknown command");
       WriteLine(conn.fd, response);
+
       DEBUG_PRINT("[%d] S: %s\n", conn.fd, response.c_str());
       LOG_F(INFO, "cmd={UNKNOWN}, Write to fd={%d}, str={%s}", conn.fd,
             response.c_str());
