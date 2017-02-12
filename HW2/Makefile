@@ -21,7 +21,7 @@ pop3: pop3.cc
 
 pack:
 	rm -f submit-hw2.zip
-	zip -r submit-hw2.zip *.cc README Makefile
+	zip -r submit-hw2.zip *.cc README Makefile *.hpp *.h
 
 clean::
 	rm -fv $(TARGETS) *~ $(OBJS) *.log $(TESTS)
