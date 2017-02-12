@@ -1,4 +1,5 @@
 #include "server.h"
+#include "string_algorithm.h"
 
 #include <algorithm>
 #include <unistd.h>
@@ -77,4 +78,16 @@ bool ReadLine(int fd, std::string &line) {
   }
 
   return true;
+}
+
+std::string ExtractCommand(std::string request, size_t len) {
+  // Extract one more char
+  auto command = request.substr(0, len + 1);
+
+  // Convert to upper case
+  to_upper(command);
+
+  // Trim back
+  trim_back(command);
+  return command;
 }

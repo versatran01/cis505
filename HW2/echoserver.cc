@@ -42,14 +42,12 @@ void HandleConnection(SocketPtr fd_ptr) {
 
     LOG_F(INFO, "Read from fd={%d}, str={%s}", fd, request.c_str());
 
-    // Extract the first 4 chars as command
-    auto command = request.substr(0, 4);
-    // Convert to upper case
-    to_upper(command);
+    // Extract command
+    auto command = ExtractCommand(request);
 
     // Check if it is ECHO or QUIT
     if (command == "ECHO") {
-      auto text = request.substr(4);
+      auto text = request.substr(5);
       trim_front(text);
       auto response = std::string("+OK ") + text;
       WriteLine(fd, response);
@@ -86,7 +84,7 @@ void HandleConnection(SocketPtr fd_ptr) {
 }
 
 /**
- * @brief sigint_handler
+ * @brief SigintHandler
  * @param sig
  */
 void SigintHandler(int sig) {

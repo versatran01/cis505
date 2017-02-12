@@ -28,4 +28,11 @@ bool WriteLine(int fd, std::string line);
  */
 bool ReadLine(int fd, std::string &line);
 
+/**
+ * @brief ExtractCommand
+ * @param request
+ * @return
+ */
+std::string ExtractCommand(std::string request, size_t len = 4);
+
 #endif // SERVER_H

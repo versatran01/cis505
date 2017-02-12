@@ -1,5 +1,5 @@
 TARGETS = echoserver pop3 smtp
-OBJS = lpi.o server.o
+OBJS = lpi.o server.o string_algorithm.o
 CC = g++
 CFLAGS = -pthread -std=c++14 -I. -Wall -g 
 LIBS = -ldl -lstdc++fs
