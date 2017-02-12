@@ -27,7 +27,7 @@ clean::
 	rm -fv $(TARGETS) *~ $(OBJS) *.log $(TESTS)
 
 realclean:: clean
-	rm -fv cis505-hw2.zip
+	rm -fv submit-hw2.zip
 
 tests : $(TESTS)
 
