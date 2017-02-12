@@ -19,6 +19,7 @@
 
 using SocketPtr = std::shared_ptr<int>;
 std::vector<SocketPtr> *open_sockets_ptr = nullptr;
+static int v = 0;
 
 /**
  * @brief listen_fd Global so that signal handler can see this
@@ -122,7 +123,10 @@ void HandleConnection(SocketPtr fd_ptr) {
     std::string request;
     ReadLine(fd, request);
     trim(request);
-    DEBUG_PRINT("[%d] C: %s\n", fd, request.c_str());
+    // DEBUG_PRINT
+    if (v)
+      fprintf(stderr, "[%d] C: %s\n", fd, request.c_str());
+
     LOG_F(INFO, "Read from fd={%d}, str={%s}", fd, request.c_str());
 
     // Extract the first 4 chars as command
@@ -137,17 +141,21 @@ void HandleConnection(SocketPtr fd_ptr) {
       auto response = std::string("+OK ") + text;
       WriteLine(fd, response);
 
-      DEBUG_PRINT("[%d] S: %s\n", fd, response.c_str());
+      // DEBUG_PRINT
+      if (v)
+        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
       LOG_F(INFO, "cmd={ECHO}, Write to fd={%d}, str={%s}", fd,
             response.c_str());
     } else if (command == "QUIT") {
       auto response = std::string("+OK Goodbye!");
       WriteLine(fd, response);
 
-      DEBUG_PRINT("[%d] S: %s\n", fd, response.c_str());
+      if (v)
+        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
       LOG_F(INFO, "cmd={QUIT}, Write to fd={%d}, str={%s}", fd,
             response.c_str());
-      DEBUG_PRINT("[%d] Connection closed\n", fd);
+      if (v)
+        fprintf(stderr, "[%d] Connection closed\n", fd);
       // Close socket and mark it as closed
       close(fd);
       *fd_ptr = -1;
@@ -156,7 +164,8 @@ void HandleConnection(SocketPtr fd_ptr) {
       auto response = std::string("-ERR Unknown command");
       WriteLine(fd, response);
 
-      DEBUG_PRINT("[%d] S: %s\n", fd, response.c_str());
+      if (v)
+        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
       LOG_F(INFO, "cmd={UNKNOWN}, Write to fd={%d}, str={%s}", fd,
             response.c_str());
     }
@@ -263,7 +272,7 @@ int main(int argc, char *argv[]) {
   }
 
   // TODO: force verbose
-  args.verbose = 1;
+  v = args.verbose;
 
   // Setup log
   if (!args.verbose) {
@@ -346,7 +355,10 @@ int main(int argc, char *argv[]) {
     inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, sizeof(client_ip));
     LOG_F(INFO, "New connection, fd={%d}, ip={%s}, port={%d}", connect_fd,
           client_ip, (int)client_addr.sin_port);
-    DEBUG_PRINT("[%d] New connection\n", connect_fd);
+
+    // DEBUG_PRINT
+    if (v)
+      fprintf(stderr, "[%d] New connection\n", connect_fd);
 
     auto connect_fd_ptr = std::make_shared<int>(connect_fd);
     open_sockets.push_back(connect_fd_ptr);
