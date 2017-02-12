@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <thread>
 #include <vector>
 
@@ -16,22 +17,13 @@
 #include "loguru.hpp"
 #include "lpi.h"
 
+using SocketPtr = std::shared_ptr<int>;
+std::vector<SocketPtr> *open_sockets_ptr = nullptr;
+
 /**
  * @brief listen_fd Global so that signal handler can see this
  */
 int listen_fd = -1;
-
-/**
- * @brief The Connection struct, RAII
- */
-struct Connection {
-  int fd;
-  Connection(int fd) : fd(fd) {}
-  ~Connection() {
-    close(fd);
-    LOG_F(INFO, "Connection closed, fd={%d}", fd);
-  }
-};
 
 /**
  * @brief WriteLine
@@ -49,12 +41,10 @@ bool WriteLine(int fd, std::string line) {
     if (n == -1) {
       if (errno == EINTR) {
         // Interrupted, restart write
-        LOG_F(WARNING, "Write interrupted, fd={%d}", fd);
-        return false;
+        continue;
       }
 
-      // Failed, exit
-      errExit("Read failed.");
+      return false;
     }
     num_sent += n;
   }
@@ -84,12 +74,10 @@ bool ReadLine(int fd, std::string &line) {
       if (errno == EINTR) {
         LOG_F(WARNING, "Read interrupted, fd={%d}", fd);
         // Interrupted, so there might be a signal
-        // continue;
-        return false;
+        continue;
       }
 
-      // Failed, exit
-      errExit("Read failed.");
+      return false;
     }
 
     // EOF, break
@@ -122,20 +110,20 @@ bool ReadLine(int fd, std::string &line) {
  * @brief Handle connection with client, cleans up automatically
  * @param fd Socket file descriptor
  */
-void HandleConnection(int fd) {
-  Connection conn(fd);
+void HandleConnection(SocketPtr fd_ptr) {
+  auto fd = *fd_ptr;
 
   // Send greeting
   auto greeting = "+OK Server ready (Author: Chao Qu / quchao)";
-  WriteLine(conn.fd, greeting);
+  WriteLine(fd, greeting);
 
   // Handle client
   while (true) {
     std::string request;
-    ReadLine(conn.fd, request);
+    ReadLine(fd, request);
     trim(request);
-    DEBUG_PRINT("[%d] C: %s\n", conn.fd, request.c_str());
-    LOG_F(INFO, "Read from fd={%d}, str={%s}", conn.fd, request.c_str());
+    DEBUG_PRINT("[%d] C: %s\n", fd, request.c_str());
+    LOG_F(INFO, "Read from fd={%d}, str={%s}", fd, request.c_str());
 
     // Extract the first 4 chars as command
     auto command = request.substr(0, 4);
@@ -147,29 +135,44 @@ void HandleConnection(int fd) {
       auto text = request.substr(4);
       trim_front(text);
       auto response = std::string("+OK ") + text;
-      WriteLine(conn.fd, response);
+      WriteLine(fd, response);
 
-      DEBUG_PRINT("[%d] S: %s\n", conn.fd, response.c_str());
-      LOG_F(INFO, "cmd={ECHO}, Write to fd={%d}, str={%s}", conn.fd,
+      DEBUG_PRINT("[%d] S: %s\n", fd, response.c_str());
+      LOG_F(INFO, "cmd={ECHO}, Write to fd={%d}, str={%s}", fd,
             response.c_str());
     } else if (command == "QUIT") {
       auto response = std::string("+OK Goodbye!");
-      WriteLine(conn.fd, response);
+      WriteLine(fd, response);
 
-      DEBUG_PRINT("[%d] S: %s\n", conn.fd, response.c_str());
-      LOG_F(INFO, "cmd={QUIT}, Write to fd={%d}, str={%s}", conn.fd,
+      DEBUG_PRINT("[%d] S: %s\n", fd, response.c_str());
+      LOG_F(INFO, "cmd={QUIT}, Write to fd={%d}, str={%s}", fd,
             response.c_str());
-      DEBUG_PRINT("[%d] Connection closed\n", conn.fd);
-      return; // Connection should close automatically
+      DEBUG_PRINT("[%d] Connection closed\n", fd);
+      // Close socket and mark it as closed
+      close(fd);
+      *fd_ptr = -1;
+      return;
     } else {
       auto response = std::string("-ERR Unknown command");
-      WriteLine(conn.fd, response);
+      WriteLine(fd, response);
 
-      DEBUG_PRINT("[%d] S: %s\n", conn.fd, response.c_str());
-      LOG_F(INFO, "cmd={UNKNOWN}, Write to fd={%d}, str={%s}", conn.fd,
+      DEBUG_PRINT("[%d] S: %s\n", fd, response.c_str());
+      LOG_F(INFO, "cmd={UNKNOWN}, Write to fd={%d}, str={%s}", fd,
             response.c_str());
     }
   }
+}
+
+/**
+ * @brief Remove closed sockets
+ * @param socket_ptrs
+ */
+void RemoveClosedSockets(std::vector<SocketPtr> &socket_ptrs) {
+  auto is_socket_closed = [](const auto &fd) { return *fd < 0; };
+  socket_ptrs.erase(
+      std::remove_if(socket_ptrs.begin(), socket_ptrs.end(), is_socket_closed),
+      socket_ptrs.end());
+  LOG_F(INFO, "Clean closed sockets, num_fd_open={%zu}", socket_ptrs.size());
 }
 
 /**
@@ -179,6 +182,14 @@ void HandleConnection(int fd) {
 void SigintHandler(int sig) {
   close(listen_fd);
   LOG_F(INFO, "Close listen socket, fd={%d}, sig={SIGINT}", listen_fd);
+  RemoveClosedSockets(*open_sockets_ptr);
+  const std::string response("-ERR Server shutting down");
+  for (const auto fd_ptr : *open_sockets_ptr) {
+    WriteLine(*fd_ptr, response);
+    close(*fd_ptr);
+    LOG_F(INFO, "Close client socket, fd={%d}", *fd_ptr);
+  }
+
   exit(EXIT_SUCCESS);
 }
 
@@ -271,6 +282,19 @@ int main(int argc, char *argv[]) {
 
   LOG_F(INFO, "Create listen socket, fd={%d}", listen_fd);
 
+  // Reuse addr and port
+  int enable = 1;
+  if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) <
+      0) {
+    errExit("Failed to set socket option SO_REUSEADDR");
+  }
+  if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int)) <
+      0) {
+    errExit("Failed to set socket option SO_REUSEPORT");
+  }
+
+  LOG_F(INFO, "Set socket opt to reuse addr and port, fd={%d}", listen_fd);
+
   // Setup SIGINT handler
   struct sigaction sa;
   sa.sa_handler = SigintHandler;
@@ -309,6 +333,8 @@ int main(int argc, char *argv[]) {
   socklen_t sin_size = sizeof(client_addr);
   char client_ip[INET_ADDRSTRLEN];
 
+  std::vector<SocketPtr> open_sockets;
+  open_sockets_ptr = &open_sockets;
   // Main accept loop
   while (true) {
     // Accept connection
@@ -322,9 +348,15 @@ int main(int argc, char *argv[]) {
           client_ip, (int)client_addr.sin_port);
     DEBUG_PRINT("[%d] New connection\n", connect_fd);
 
+    auto connect_fd_ptr = std::make_shared<int>(connect_fd);
+    open_sockets.push_back(connect_fd_ptr);
+
     // Create a thread to handle connection and detach
-    std::thread worker(HandleConnection, connect_fd);
+    std::thread worker(HandleConnection, connect_fd_ptr);
     worker.detach();
+
+    // Clean closed sockets
+    RemoveClosedSockets(open_sockets);
   }
 
   return EXIT_SUCCESS;
