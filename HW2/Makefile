@@ -1,5 +1,5 @@
 TARGETS = echoserver pop3 smtp
-OBJS = lpi.o echoserver.o
+OBJS = lpi.o
 CC = g++
 CFLAGS = -pthread -std=c++14 -I. -Wall -g
 TESTS_DIR = tests
@@ -7,14 +7,15 @@ TESTS = test_main test_thread test_signal
 
 all: $(TARGETS)
 
-echoserver: $(OBJS)
+echoserver: $(OBJS) echoserver.o
+	$(CC) $(CFLAGS) $^ -o $@ -ldl
+
+smtp: $(OBJS) smtp.o
 	$(CC) $(CFLAGS) $^ -o $@ -ldl
 
 %.o: %.cc
 	$(CC) $(CFLAGS) $< -c -o $@
 
-smtp: smtp.cc
-	g++ $< -lpthread -g -o $@
 
 pop3: pop3.cc
 	g++ $^ -I/opt/local/include/ -L/opt/local/bin/openssl -lcrypto -lpthread -g -o $@
