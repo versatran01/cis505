@@ -7,17 +7,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <memory>
 #include <thread>
-#include <vector>
 
+#include "lpi.h"
+#include "server.h"
 #include "string_algorithm.h"
 
 #define LOGURU_IMPLEMENTATION 1
 #include "loguru.hpp"
-#include "lpi.h"
 
-using SocketPtr = std::shared_ptr<int>;
 std::vector<SocketPtr> *open_sockets_ptr = nullptr;
 static int v = 0;
 
@@ -170,18 +168,6 @@ void HandleConnection(SocketPtr fd_ptr) {
             response.c_str());
     }
   }
-}
-
-/**
- * @brief Remove closed sockets
- * @param socket_ptrs
- */
-void RemoveClosedSockets(std::vector<SocketPtr> &socket_ptrs) {
-  auto is_socket_closed = [](const auto &fd) { return *fd < 0; };
-  socket_ptrs.erase(
-      std::remove_if(socket_ptrs.begin(), socket_ptrs.end(), is_socket_closed),
-      socket_ptrs.end());
-  LOG_F(INFO, "Clean closed sockets, num_fd_open={%zu}", socket_ptrs.size());
 }
 
 /**

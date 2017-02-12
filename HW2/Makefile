@@ -1,5 +1,5 @@
 TARGETS = echoserver pop3 smtp
-OBJS = lpi.o
+OBJS = lpi.o server.o
 CC = g++
 CFLAGS = -pthread -std=c++14 -I. -Wall -g
 TESTS_DIR = tests
