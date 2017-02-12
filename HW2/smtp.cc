@@ -7,17 +7,19 @@
 #include "loguru.hpp"
 #include "lpi.h"
 
+int listen_fd = -1;
+
 static char args_doc[] = "MAILBOX";
 
 /**
  * @brief The argp_args struct
  */
 struct argp_args {
-  int port_no = 10000;  // port number, default is 10000
-  int print_name = 0;   // print name and seas login to stderr
-  int verbose = 0;      // verbose mode, log to stderr, otherwise log to file
-  int backlog = 10;     // backlog option to listen
-  char *mailbox;        // directory of mailbox
+  int port_no = 2500;  // port number, default is 2500
+  int print_name = 0;  // print name and seas login to stderr
+  int verbose = 0;     // verbose mode, log to stderr, otherwise log to file
+  int backlog = 10;    // backlog option to listen
+  char *mailbox;       // directory of mailbox
 };
 
 /**
@@ -87,6 +89,7 @@ int main(int argc, char *argv[]) {
     exit(EXIT_SUCCESS);
   }
 
+  // Force verbose
   args.verbose = 1;
 
   // Setup log
@@ -98,5 +101,6 @@ int main(int argc, char *argv[]) {
   LOG_F(INFO, "args: port_no={%d}", args.port_no);
   LOG_F(INFO, "args: backlog={%d}", args.backlog);
   LOG_F(INFO, "args: mailbox={%s}", args.mailbox);
+
   return EXIT_SUCCESS;
 }
