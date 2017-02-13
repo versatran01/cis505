@@ -16,94 +16,9 @@
 #define LOGURU_IMPLEMENTATION 1
 #include "loguru.hpp"
 
-std::vector<SocketPtr> *open_sockets_ptr = nullptr;
 static int v = 0;
-
-/**
- * @brief listen_fd Global so that signal handler can see this
- */
 int listen_fd = -1;
-
-/**
- * @brief WriteLine
- * @param fd
- * @param line
- */
-bool WriteLine(int fd, std::string line) {
-  line.append("\r\n");
-  const int len = line.size();
-  int num_sent = 0;
-
-  while (num_sent < len) {
-    int n = write(fd, &line.data()[num_sent], len - num_sent);
-    // write() failed
-    if (n == -1) {
-      if (errno == EINTR) {
-        // Interrupted, restart write
-        continue;
-      }
-
-      return false;
-    }
-    num_sent += n;
-  }
-
-  return true;
-}
-
-/**
- * @brief Read an entire line from socket file descriptor
- * @param fd Socket file descriptor
- * @param line
- * @return True when read succeeded, false when read interrupted by signal
- */
-bool ReadLine(int fd, std::string &line) {
-  line.clear();
-  const char lf = '\n';
-  const char cr = '\r';
-  char ch;
-
-  for (;;) {
-    bool got_cr = false;
-    // Read one char
-    const auto n = read(fd, &ch, 1);
-
-    // read() failed
-    if (n == -1) {
-      if (errno == EINTR) {
-        LOG_F(WARNING, "Read interrupted, fd={%d}", fd);
-        // Interrupted, so there might be a signal
-        continue;
-      }
-
-      return false;
-    }
-
-    // EOF, break
-    if (n == 0)
-      break;
-
-    // Read succeeded
-    // LF, just break
-    if (ch == lf)
-      break;
-
-    // CR, dont append, mark it
-    if (ch == cr) {
-      got_cr = true;
-      continue;
-    }
-
-    // non-EOL, so append previous CR
-    if (got_cr)
-      line += cr;
-
-    // non-EOL, append
-    line += ch;
-  }
-
-  return true;
-}
+std::vector<SocketPtr> *open_sockets_ptr = nullptr;
 
 /**
  * @brief Handle connection with client, cleans up automatically
@@ -177,7 +92,11 @@ void HandleConnection(SocketPtr fd_ptr) {
 void SigintHandler(int sig) {
   close(listen_fd);
   LOG_F(INFO, "Close listen socket, fd={%d}, sig={SIGINT}", listen_fd);
+
   RemoveClosedSockets(*open_sockets_ptr);
+  LOG_F(INFO, "Remove closed sockets, num_fd_open={%d}",
+        (int)open_sockets_ptr->size());
+
   const std::string response("-ERR Server shutting down");
   for (const auto fd_ptr : *open_sockets_ptr) {
     WriteLine(*fd_ptr, response);

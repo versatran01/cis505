@@ -5,7 +5,6 @@
 #include <sys/types.h>
 
 #include <cstdio>
-#include <cstdlib>
 
 #include "lpi.h"
 #include "server.h"
@@ -14,9 +13,10 @@
 #define LOGURU_IMPLEMENTATION 1
 #include "loguru.hpp"
 
-int listen_fd = -1;
-
 static int v = 0;
+int listen_fd = -1;
+std::vector<SocketPtr> *open_sockets_ptr = nullptr;
+
 static char args_doc[] = "MAILBOX";
 
 /**
@@ -38,7 +38,83 @@ void SigintHandler(int sig) {
   close(listen_fd);
   LOG_F(INFO, "Close listen socket, fd={%d}, sig={SIGINT}", listen_fd);
 
+  RemoveClosedSockets(*open_sockets_ptr);
+  LOG_F(INFO, "Remove closed sockets, num_fd_open={%d}",
+        (int)open_sockets_ptr->size());
+
+  const std::string response("-ERR Server shutting down");
+  for (const auto fd_ptr : *open_sockets_ptr) {
+    WriteLine(*fd_ptr, response);
+    close(*fd_ptr);
+    LOG_F(INFO, "Close client socket, fd={%d}", *fd_ptr);
+  }
+
   exit(EXIT_SUCCESS);
+}
+
+/**
+ * @brief Handle connection with client, cleans up automatically
+ * @param fd Socket file descriptor
+ */
+void HandleConnection(SocketPtr fd_ptr) {
+  auto fd = *fd_ptr;
+
+  // Send greeting
+  auto greeting = "+OK Server ready (Author: Chao Qu / quchao)";
+  WriteLine(fd, greeting);
+
+  // Handle client
+  while (true) {
+    std::string request;
+    ReadLine(fd, request);
+    trim(request);
+    // DEBUG_PRINT
+    if (v)
+      fprintf(stderr, "[%d] C: %s\n", fd, request.c_str());
+
+    LOG_F(INFO, "Read from fd={%d}, str={%s}", fd, request.c_str());
+
+    // Extract the first 4 chars as command
+    auto command = request.substr(0, 4);
+    // Convert to upper case
+    to_upper(command);
+
+    // Check if it is ECHO or QUIT
+    if (command == "ECHO") {
+      auto text = request.substr(4);
+      trim_front(text);
+      auto response = std::string("+OK ") + text;
+      WriteLine(fd, response);
+
+      // DEBUG_PRINT
+      if (v)
+        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
+      LOG_F(INFO, "cmd={ECHO}, Write to fd={%d}, str={%s}", fd,
+            response.c_str());
+    } else if (command == "QUIT") {
+      auto response = std::string("+OK Goodbye!");
+      WriteLine(fd, response);
+
+      if (v)
+        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
+      LOG_F(INFO, "cmd={QUIT}, Write to fd={%d}, str={%s}", fd,
+            response.c_str());
+      if (v)
+        fprintf(stderr, "[%d] Connection closed\n", fd);
+      // Close socket and mark it as closed
+      close(fd);
+      *fd_ptr = -1;
+      return;
+    } else {
+      auto response = std::string("-ERR Unknown command");
+      WriteLine(fd, response);
+
+      if (v)
+        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
+      LOG_F(INFO, "cmd={UNKNOWN}, Write to fd={%d}, str={%s}", fd,
+            response.c_str());
+    }
+  }
 }
 
 /**
@@ -209,6 +285,7 @@ int main(int argc, char *argv[]) {
     worker.detach();
 
     // Clean closed sockets
+    // Do we need a socket here?
     RemoveClosedSockets(open_sockets);
   }
 
