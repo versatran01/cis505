@@ -1,17 +1,18 @@
 TARGETS = echoserver pop3 smtp
 OBJS = lpi.o server.o
 CC = g++
-CFLAGS = -pthread -std=c++14 -I. -Wall -g
+CFLAGS = -pthread -std=c++14 -I. -Wall -g 
+LIBS = -ldl -lstdc++fs
 TESTS_DIR = tests
-TESTS = test_main test_thread test_signal
+TESTS = test_main test_thread test_signal test_filesystem
 
 all: $(TARGETS)
 
 echoserver: $(OBJS) echoserver.o
-	$(CC) $(CFLAGS) $^ -o $@ -ldl
+	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
 smtp: $(OBJS) smtp.o
-	$(CC) $(CFLAGS) $^ -o $@ -ldl
+	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
 %.o: %.cc
 	$(CC) $(CFLAGS) $< -c -o $@
@@ -33,4 +34,4 @@ realclean:: clean
 tests : $(TESTS)
 
 test_% : tests/test_%.cc
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< -o $@ $(LIBS)
