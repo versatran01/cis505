@@ -38,7 +38,7 @@ pop3: $(SRC_DIR)/pop3.cc
 
 pack:
 	rm -f submit-hw2.zip
-	zip -r submit-hw2.zip *.cc README Makefile *.hpp *.h
+	zip -r submit-hw2.zip $(SRC_DIR)/*.cc README Makefile $(INC_DIR)/*.hpp $(INC_DIR)/*.h
 
 clean::
 	rm -fv $(TARGETS) *~ $(OBJS) *.log $(TESTS) 
