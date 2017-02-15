@@ -65,10 +65,10 @@ void SigintHandler(int sig) {
  * @param fd Socket file descriptor
  */
 void HandleConnection(SocketPtr fd_ptr) {
-  auto fd = *fd_ptr;
+  auto &fd = *fd_ptr;
 
   // Send greeting
-  auto greeting = "+OK Server ready (Author: Chao Qu / quchao)";
+  auto greeting = "220 localhost (Chao Qu / quchao)";
   WriteLine(fd, greeting);
 
   // Handle client

@@ -1,24 +1,36 @@
 TARGETS = echoserver pop3 smtp
-OBJS = lpi.o server.o string_algorithm.o
 CC = g++
-CFLAGS = -pthread -std=c++14 -I. -Wall -g 
 LIBS = -ldl -lstdc++fs
+
 TESTS_DIR = tests
 TESTS = test_main test_thread test_signal test_filesystem
 
+INC_DIR = include
+SRC_DIR = src
+OBJ_DIR = obj
+
+CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -Wall -g 
+
+_DEPS = lpi.h server.h string_algorithm.h
+DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
+
+_OBJS = lpi.o server.o string_algorithm.o
+OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
+
+
 all: $(TARGETS)
 
-echoserver: $(OBJS) echoserver.o
+echoserver: $(OBJS) $(OBJ_DIR)/echoserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
-smtp: $(OBJS) smtp.o
+smtp: $(OBJS) $(OBJ_DIR)/smtp.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
-%.o: %.cc
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS)
 	$(CC) $(CFLAGS) $< -c -o $@
 
 
-pop3: pop3.cc
+pop3: $(SRC_DIR)/pop3.cc
 	g++ $^ -I/opt/local/include/ -L/opt/local/bin/openssl -lcrypto -lpthread -g -o $@
 
 pack:
