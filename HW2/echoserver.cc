@@ -115,6 +115,14 @@ struct argp_args {
   int backlog = 10;    // backlog option to listen
 };
 
+struct argp_option options[] = {
+    {0, 'p', "PORT_NO", 0, "Port number, default is 10000."},
+    {0, 'a', 0, 0, "Print name and seas login to stderr."},
+    {0, 'v', 0, 0, "Verbose mode."},
+    // Extra options
+    {0, 'b', "BACKLOG", 0, "Number of connections on incoming queue."},
+    {0}};
+
 /**
  * @brief Parse command line options, used by argp
  */
@@ -145,15 +153,8 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 argp_args ParseCmdArguments(int argc, char **argv) {
   // Parse command line arguments
   struct argp_args args;
-  struct argp_option options[] = {
-      {0, 'p', "PORT_NO", 0, "Port number, default is 10000."},
-      {0, 'a', 0, 0, "Print name and seas login to stderr."},
-      {0, 'v', 0, 0, "Verbose mode."},
-      // Extra options
-      {0, 'b', "BACKLOG", 0, "Number of connections on incoming queue."},
-      {0}};
-  struct argp argp = {options, parse_opt, 0, 0};
-  int status = argp_parse(&argp, argc, argv, 0, 0, &args);
+  struct argp argp_ = {options, parse_opt, 0, 0};
+  int status = argp_parse(&argp_, argc, argv, 0, 0, &args);
 
   if (status)
     fatal("Failed to parse arguments, error code: %d.", status);

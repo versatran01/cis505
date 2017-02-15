@@ -35,4 +35,12 @@ bool ReadLine(int fd, std::string &line);
  */
 std::string ExtractCommand(std::string request, size_t len = 4);
 
+class Server {
+public:
+private:
+  bool verbose_;
+  int listen_fd_;
+  std::vector<SocketPtr> open_connections_;
+};
+
 #endif // SERVER_H
