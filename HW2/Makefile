@@ -2,6 +2,9 @@ TARGETS = echoserver pop3 smtp
 CC = g++
 LIBS = -ldl -lstdc++fs
 
+TEST_DIR = test
+TEST = echo-test smtp-test pop3-test
+
 TESTS_DIR = tests
 TESTS = test_main test_thread test_signal test_filesystem
 
@@ -38,7 +41,7 @@ pack:
 	zip -r submit-hw2.zip *.cc README Makefile *.hpp *.h
 
 clean::
-	rm -fv $(TARGETS) *~ $(OBJS) *.log $(TESTS)
+	rm -fv $(TARGETS) *~ $(OBJS) *.log $(TESTS) 
 
 realclean:: clean
 	rm -fv submit-hw2.zip
