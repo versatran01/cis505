@@ -48,20 +48,17 @@ void errExitEN(int errnum, const char *format, ...) NORETURN;
 
 /**
  * @brief fatal Used to diagnose general errors, terminates program
- * @param format
  */
 void fatal(const char *format, ...) NORETURN;
 
 /**
  * @brief cmdLineErr Diagnose errors in command-line argument usage
- * @param format
  */
 void usageErr(const char *format, ...) NORETURN;
 
 /**
  * @brief cmdLineErr Similar to usageErr(), but is intended for diagnosing
  * errors in the command-line arguments specified to a program
- * @param format
  */
 void cmdLineErr(const char *format, ...) NORETURN;
 
