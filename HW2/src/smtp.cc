@@ -34,7 +34,9 @@ void SmtpServer::Mailbox() {
   if (fs::is_directory(mailbox_dir)) {
     LOG_F(INFO, "Mailbox dir, path={%s}", mailbox_dir.c_str());
   } else {
-    LOG_F(FATAL, "Mailbox dir invalid, path={%s}", mailbox_dir.c_str());
+    const auto msg = "Mailbox dir invalid, path={%s}";
+    LOG_F(ERROR, msg, mailbox_dir.c_str());
+    errExit(msg, mailbox_dir.c_str());
   }
 
   // Read all users
@@ -49,7 +51,9 @@ void SmtpServer::Mailbox() {
   }
 
   if (users_.empty()) {
-    LOG_F(FATAL, "No user");
+    const auto msg = "No user found";
+    LOG_F(ERROR, msg);
+    errExit(msg);
   }
   LOG_F(INFO, "Total user, n={%zu}", users_.size());
 }

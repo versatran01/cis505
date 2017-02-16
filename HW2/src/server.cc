@@ -115,8 +115,8 @@ void Server::CreateSocket() {
   listen_fd_ = socket(AF_INET, SOCK_STREAM, 0);
   if (listen_fd_ == -1) {
     const auto msg = "Failed to create listen socket";
-    LOG_F(FATAL, msg);
-    //    errExit(msg);
+    LOG_F(ERROR, msg);
+    errExit(msg);
   }
 
   LOG_F(INFO, "Create listen socket, fd={%d}", listen_fd_);
@@ -153,8 +153,8 @@ void Server::BindAddress() {
   int ret = bind(listen_fd_, (sockaddr *)&server_addr, sizeof(server_addr));
   if (ret == -1) {
     const auto msg = "Failed to bind listen socket";
-    LOG_F(FATAL, msg);
-    //    errExit(msg);
+    LOG_F(ERROR, msg);
+    errExit(msg);
   }
 
   LOG_F(INFO, "Bind listen socket, port_h={%d}, port_n={%d}", port_no_,
@@ -166,7 +166,7 @@ void Server::ListenToConn() {
   if (listen(listen_fd_, backlog_) == -1) {
     const auto msg = "Failed to listen to connections";
     LOG_F(FATAL, msg);
-    //    errExit(msg);
+    errExit(msg);
   }
 
   LOG_F(INFO, "Start listening to connections");
