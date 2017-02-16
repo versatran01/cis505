@@ -1,8 +1,16 @@
 #include "server.h"
+#include "loguru.hpp"
+#include "lpi.h"
 #include "string_algorithm.h"
 
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+
 #include <algorithm>
-#include <unistd.h>
+#include <thread>
 
 void RemoveClosedSockets(std::vector<SocketPtr> &socket_ptrs) {
   auto is_socket_closed = [](const auto &fd) { return *fd < 0; };
@@ -90,4 +98,103 @@ std::string ExtractCommand(std::string request, size_t len) {
   // Trim back
   trim_back(command);
   return command;
+}
+
+Server::Server(int port_no, int backlog, bool verbose)
+    : port_no_(port_no), backlog_(backlog), verbose_(verbose) {
+  LOG_F(INFO, "port_no={%d}", port_no_);
+  LOG_F(INFO, "backlog={%d}", backlog_);
+}
+
+void Server::Setup() {
+  // Create listen socket
+  listen_fd_ = socket(AF_INET, SOCK_STREAM, 0);
+  if (listen_fd_ == -1) {
+    const auto msg = "Failed to create listen socket";
+    LOG_F(ERROR, msg);
+    errExit(msg);
+  }
+
+  LOG_F(INFO, "Create listen socket, fd={%d}", listen_fd_);
+
+  // Reuse address
+  const int val = 1;
+  if (setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int)) < 0) {
+    const auto msg = "Failed to set socket option SO_REUSEADDR";
+    LOG_F(ERROR, msg);
+    errExit(msg);
+  }
+
+  LOG_F(INFO, "Set socket opt to reuse address, fd={%d}", listen_fd_);
+
+  // Reuse port
+  if (setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(int)) < 0) {
+    const auto msg = "Failed to set socket option SO_REUSEPORT";
+    LOG_F(ERROR, msg);
+    errExit(msg);
+  }
+
+  LOG_F(INFO, "Set socket opt to reuse port, fd={%d}", listen_fd_);
+
+  // Prepare sockaddr
+  sockaddr_in server_addr;
+  bzero(&server_addr, sizeof(server_addr));
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_addr.s_addr = htons(INADDR_ANY);
+  server_addr.sin_port = htons(port_no_);
+
+  // Bind to an address
+  int ret = bind(listen_fd_, (sockaddr *)&server_addr, sizeof(server_addr));
+  if (ret == -1) {
+    const auto msg = "Failed to bind listen socket";
+    LOG_F(ERROR, msg);
+    errExit(msg);
+  }
+
+  LOG_F(INFO, "Bind listen socket, port_h={%d}, port_n={%d}", port_no_,
+        static_cast<int>(server_addr.sin_port));
+
+  // Listen to incoming connection
+  if (listen(listen_fd_, backlog_) == -1) {
+    const auto msg = "Failed to listen to connections";
+    LOG_F(ERROR, msg);
+    errExit(msg);
+  }
+
+  LOG_F(INFO, "Start listening to connections");
+}
+
+void Server::Run() {
+  sockaddr_in client_addr;
+  socklen_t sin_size = sizeof(client_addr);
+  char client_ip[INET_ADDRSTRLEN];
+
+  while (true) {
+    // Accept connection
+    int connect_fd = accept(listen_fd_, (sockaddr *)&client_addr, &sin_size);
+    if (connect_fd == -1) {
+      LOG_F(WARNING, "Accept failed, fd={%d}, port_h={%d}", listen_fd_,
+            port_no_);
+      continue;
+    }
+
+    inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, sizeof(client_ip));
+    LOG_F(INFO, "New connection, fd={%d}, ip={%s}, port_n={%d}", connect_fd,
+          client_ip, static_cast<int>(client_addr.sin_port));
+
+    // DEBUG_PRINT
+    if (verbose_)
+      fprintf(stderr, "[%d] New connection\n", connect_fd);
+
+    auto connect_fd_ptr = std::make_shared<int>(connect_fd);
+    open_sockets_.push_back(connect_fd_ptr);
+
+    // Create a thread to handle connection and detach
+    //    Dispatch(connect_fd_ptr);
+    std::thread worker([&] { Work(connect_fd_ptr); });
+    worker.detach();
+
+    // Clean closed sockets
+    RemoveClosedSockets(open_sockets_);
+  }
 }
