@@ -8,33 +8,25 @@
 using SocketPtr = std::shared_ptr<int>;
 
 /**
- * @brief RemoveClosedSockets
- * @param socket_ptrs
+ * @brief Remove closed sockets
  */
 void RemoveClosedSockets(std::vector<SocketPtr> &socket_ptrs);
 
 /**
- * @brief WriteLine
- * @param fd
- * @param line
- * @return
+ * @brief Write one line, return success or not
  */
 bool WriteLine(int fd, std::string line);
 
 /**
- * @brief ReadLine
- * @param fd
- * @param line
- * @return
+ * @brief Read one line, return success or not
  */
 bool ReadLine(int fd, std::string &line);
 
+typedef void (*sa_handler_ptr)(int);
 /**
- * @brief ExtractCommand
- * @param request
- * @return
+ * @brief SetSigintHandler
  */
-std::string ExtractCommand(std::string request, size_t len = 4);
+void SetSigintHandler(sa_handler_ptr handler);
 
 /**
  * @brief The Server class, base class
@@ -55,13 +47,15 @@ public:
   virtual void Stop() = 0;
 
 protected:
-  bool verbose_;
   int listen_fd_;
   std::vector<SocketPtr> open_sockets_;
 
 private:
   int port_no_;
   int backlog_;
+
+protected:
+  bool verbose_;
 };
 
 #endif // SERVER_H

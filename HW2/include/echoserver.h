@@ -12,6 +12,9 @@ public:
 
   virtual void Work(SocketPtr &sock_ptr) override;
   virtual void Stop() override;
+
+private:
+  std::string ExtractCommand(const std::string &request, size_t len = 4);
 };
 
 #endif // ECHOSERVER_H

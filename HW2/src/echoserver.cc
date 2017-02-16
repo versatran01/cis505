@@ -11,6 +11,18 @@
 
 EchoServer *echo_server_ptr = nullptr;
 
+std::string EchoServer::ExtractCommand(const std::string &request, size_t len) {
+  // Extract one more char
+  auto command = request.substr(0, len + 1);
+
+  // Convert to upper case
+  to_upper(command);
+
+  // Trim back
+  trim_back(command);
+  return command;
+}
+
 void EchoServer::Work(SocketPtr &sock_ptr) {
   LOG_F(INFO, "Inside EchoServer::Work");
   auto fd = *sock_ptr;
@@ -24,10 +36,10 @@ void EchoServer::Work(SocketPtr &sock_ptr) {
     std::string request;
     ReadLine(fd, request);
     trim(request);
+
     // DEBUG_PRINT
     if (verbose_)
       fprintf(stderr, "[%d] C: %s\n", fd, request.c_str());
-
     LOG_F(INFO, "Read from fd={%d}, str={%s}", fd, request.c_str());
 
     // Extract command
@@ -49,6 +61,7 @@ void EchoServer::Work(SocketPtr &sock_ptr) {
       auto response = std::string("+OK Goodbye!");
       WriteLine(fd, response);
 
+      // DEBUG_PRINT
       if (verbose_)
         fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
       LOG_F(INFO, "cmd={QUIT}, Write to fd={%d}, str={%s}", fd,
@@ -64,6 +77,7 @@ void EchoServer::Work(SocketPtr &sock_ptr) {
       auto response = std::string("-ERR Unknown command");
       WriteLine(fd, response);
 
+      // DEBUG_PRINT
       if (verbose_)
         fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
       LOG_F(INFO, "cmd={UNKNOWN}, Write to fd={%d}, str={%s}", fd,
@@ -91,7 +105,6 @@ void EchoServer::Stop() {
 
 /**
  * @brief SigintHandler
- * @param sig
  */
 void SigintHandler(int sig) {
   echo_server_ptr->Stop();
@@ -174,18 +187,7 @@ int main(int argc, char *argv[]) {
     loguru::add_file("echoserver.log", loguru::Truncate, loguru::Verbosity_MAX);
   }
 
-  // Setup SIGINT handler
-  struct sigaction sa;
-  sa.sa_handler = SigintHandler;
-  sa.sa_flags = 0; // or SA_RESTART
-  sigemptyset(&sa.sa_mask);
-
-  if (sigaction(SIGINT, &sa, NULL) == -1) {
-    const auto msg = "Failed to set SIGINT handler";
-    LOG_F(ERROR, msg);
-    errExit(msg);
-  }
-  LOG_F(INFO, "Set SIGINT handler");
+  SetSigintHandler(SigintHandler);
 
   // EchoServer
   EchoServer echo_server(args.port_no, args.backlog, args.verbose);

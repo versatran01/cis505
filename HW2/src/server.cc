@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <string.h>
+#include <sys/signal.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 
@@ -88,16 +89,19 @@ bool ReadLine(int fd, std::string &line) {
   return true;
 }
 
-std::string ExtractCommand(std::string request, size_t len) {
-  // Extract one more char
-  auto command = request.substr(0, len + 1);
+void SetSigintHandler(sa_handler_ptr handler) {
+  // Setup SIGINT handler
+  struct sigaction sa;
+  sa.sa_handler = handler;
+  sa.sa_flags = 0; // or SA_RESTART
+  sigemptyset(&sa.sa_mask);
 
-  // Convert to upper case
-  to_upper(command);
-
-  // Trim back
-  trim_back(command);
-  return command;
+  if (sigaction(SIGINT, &sa, NULL) == -1) {
+    const auto msg = "Failed to set SIGINT handler";
+    LOG_F(ERROR, msg);
+    errExit(msg);
+  }
+  LOG_F(INFO, "Set SIGINT handler");
 }
 
 Server::Server(int port_no, int backlog, bool verbose)
