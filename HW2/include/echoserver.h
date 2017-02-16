@@ -10,7 +10,7 @@ class EchoServer : public Server {
 public:
   using Server::Server;
 
-  virtual void Work(SocketPtr &sock_ptr) override;
+  virtual void Work(const SocketPtr &sock_ptr) override;
   virtual void Stop() override;
 
 private:

@@ -23,7 +23,7 @@ std::string EchoServer::ExtractCommand(const std::string &request, size_t len) {
   return command;
 }
 
-void EchoServer::Work(SocketPtr &sock_ptr) {
+void EchoServer::Work(const SocketPtr &sock_ptr) {
   LOG_F(INFO, "Inside EchoServer::Work");
   auto fd = *sock_ptr;
 
@@ -103,22 +103,16 @@ void EchoServer::Stop() {
   }
 }
 
-/**
- * @brief SigintHandler
- */
 void SigintHandler(int sig) {
   echo_server_ptr->Stop();
   exit(EXIT_SUCCESS);
 }
 
-/**
- * @brief The argp_args struct
- */
 struct argp_args {
-  int port_no = 10000; // port number, default is 10000
-  int print_name = 0;  // print name and seas login to stderr
-  int verbose = 0;     // verbose mode, log to stderr, otherwise log to file
-  int backlog = 10;    // backlog option to listen
+  int port_no = 10000;  // port number, default is 10000
+  int print_name = 0;   // print name and seas login to stderr
+  bool verbose = false; // verbose mode, log to stderr, otherwise log to file
+  int backlog = 10;     // backlog option to listen
 };
 
 struct argp_option options[] = {
@@ -129,9 +123,6 @@ struct argp_option options[] = {
     {0, 'b', "BACKLOG", 0, "Number of connections on incoming queue."},
     {0}};
 
-/**
- * @brief Parse command line options, used by argp
- */
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   struct argp_args *args = (struct argp_args *)state->input;
   switch (key) {
@@ -142,7 +133,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     args->print_name = 1;
     break;
   case 'v':
-    args->verbose = 1;
+    args->verbose = true;
     break;
   case 'b':
     args->backlog = std::atoi(arg);
@@ -152,10 +143,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   return 0;
 }
 
-/**
- * @brief Parse command line arguments
- * @return argp_args struct that contains all the options and inputs
- */
 argp_args ParseCmdArguments(int argc, char **argv) {
   // Parse command line arguments
   struct argp_args args;

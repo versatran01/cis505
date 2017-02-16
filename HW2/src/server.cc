@@ -110,36 +110,38 @@ Server::Server(int port_no, int backlog, bool verbose)
   LOG_F(INFO, "backlog={%d}", backlog_);
 }
 
-void Server::Setup() {
+void Server::CreateSocket() {
   // Create listen socket
   listen_fd_ = socket(AF_INET, SOCK_STREAM, 0);
   if (listen_fd_ == -1) {
     const auto msg = "Failed to create listen socket";
-    LOG_F(ERROR, msg);
+    LOG_F(FATAL, msg);
     errExit(msg);
   }
 
   LOG_F(INFO, "Create listen socket, fd={%d}", listen_fd_);
+}
 
+void Server::ReuseAddrPort() {
   // Reuse address
   const int val = 1;
-  if (setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(int)) < 0) {
+  constexpr auto int_size = sizeof(int);
+  if (setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEADDR, &val, int_size) < 0) {
     const auto msg = "Failed to set socket option SO_REUSEADDR";
-    LOG_F(ERROR, msg);
-    errExit(msg);
+    LOG_F(WARNING, msg);
+  } else {
+    LOG_F(INFO, "Set socket opt to reuse address, fd={%d}", listen_fd_);
   }
 
-  LOG_F(INFO, "Set socket opt to reuse address, fd={%d}", listen_fd_);
-
-  // Reuse port
-  if (setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEPORT, &val, sizeof(int)) < 0) {
+  if (setsockopt(listen_fd_, SOL_SOCKET, SO_REUSEPORT, &val, int_size) < 0) {
     const auto msg = "Failed to set socket option SO_REUSEPORT";
-    LOG_F(ERROR, msg);
-    errExit(msg);
+    LOG_F(WARNING, msg);
+  } else {
+    LOG_F(INFO, "Set socket opt to reuse port, fd={%d}", listen_fd_);
   }
+}
 
-  LOG_F(INFO, "Set socket opt to reuse port, fd={%d}", listen_fd_);
-
+void Server::BindAddress() {
   // Prepare sockaddr
   sockaddr_in server_addr;
   bzero(&server_addr, sizeof(server_addr));
@@ -151,21 +153,30 @@ void Server::Setup() {
   int ret = bind(listen_fd_, (sockaddr *)&server_addr, sizeof(server_addr));
   if (ret == -1) {
     const auto msg = "Failed to bind listen socket";
-    LOG_F(ERROR, msg);
+    LOG_F(FATAL, msg);
     errExit(msg);
   }
 
   LOG_F(INFO, "Bind listen socket, port_h={%d}, port_n={%d}", port_no_,
         static_cast<int>(server_addr.sin_port));
+}
 
+void Server::ListenToConn() {
   // Listen to incoming connection
   if (listen(listen_fd_, backlog_) == -1) {
     const auto msg = "Failed to listen to connections";
-    LOG_F(ERROR, msg);
+    LOG_F(FATAL, msg);
     errExit(msg);
   }
 
   LOG_F(INFO, "Start listening to connections");
+}
+
+void Server::Setup() {
+  CreateSocket();
+  ReuseAddrPort();
+  BindAddress();
+  ListenToConn();
 }
 
 void Server::Run() {
@@ -190,15 +201,15 @@ void Server::Run() {
     if (verbose_)
       fprintf(stderr, "[%d] New connection\n", connect_fd);
 
-    auto connect_fd_ptr = std::make_shared<int>(connect_fd);
+    const auto connect_fd_ptr = std::make_shared<int>(connect_fd);
     open_sockets_.push_back(connect_fd_ptr);
 
     // Create a thread to handle connection and detach
-    //    Dispatch(connect_fd_ptr);
     std::thread worker([&] { Work(connect_fd_ptr); });
     worker.detach();
 
     // Clean closed sockets
     RemoveClosedSockets(open_sockets_);
+    LOG_F(INFO, "Remaining open connections, num={%zu}", open_sockets_.size());
   }
 }

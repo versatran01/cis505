@@ -29,8 +29,11 @@ echoserver: $(OBJS) $(OBJ_DIR)/echoserver.o
 smtp: $(OBJS) $(OBJ_DIR)/smtp.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS)
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS) _obj
 	$(CC) $(CFLAGS) $< -c -o $@
+
+_obj:
+	mkdir -p $(OBJ_DIR)
 
 
 pop3: $(SRC_DIR)/pop3.cc
