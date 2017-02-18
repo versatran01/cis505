@@ -4,7 +4,7 @@
 
 #include "echoserver.h"
 #include "lpi.h"
-#include "string_algorithm.h"
+#include "string_algorithms.h"
 
 #define LOGURU_IMPLEMENTATION 1
 #include "loguru.hpp"

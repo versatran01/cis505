@@ -1,7 +1,7 @@
 #include "server.h"
 #include "loguru.hpp"
 #include "lpi.h"
-#include "string_algorithm.h"
+#include "string_algorithms.h"
 
 #include <arpa/inet.h>
 #include <netdb.h>

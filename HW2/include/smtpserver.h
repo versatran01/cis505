@@ -1,15 +1,11 @@
-#ifndef SMTP_H
-#define SMTP_H
+#ifndef SMTP_SERVER_H
+#define SMTP_SERVER_H
 
 #include "server.h"
 #include "user.h"
 
-class Mail {
-public:
-};
-
 class SmtpServer : public Server {
-public:
+ public:
   SmtpServer(int port_no, int backlog, bool verbose,
              const std::string &mailbox);
 
@@ -18,9 +14,9 @@ public:
 
   void Mailbox();
 
-private:
+ private:
   std::string mailbox_;
   std::vector<User> users_;
 };
 
-#endif // SMTP_H
+#endif  // SMTP_SERVER_H

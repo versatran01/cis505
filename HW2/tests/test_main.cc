@@ -1,6 +1,6 @@
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
-#include "string_algorithm.h"
+#include "string_algorithms.h"
 
 TEST_CASE("To upper copy", "[to_upper_copy]") {
   SECTION("To upper same") {

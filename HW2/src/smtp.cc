@@ -1,69 +1,12 @@
 #include <argp.h>
-#include <experimental/filesystem>
 
-#include "fsm.hpp"
 #include "lpi.h"
-#include "smtp.h"
-#include "string_algorithm.h"
+#include "smtpserver.h"
 
 #define LOGURU_IMPLEMENTATION 1
 #include "loguru.hpp"
 
-namespace fs = std::experimental::filesystem;
-
 SmtpServer *smtp_server_ptr = nullptr;
-
-SmtpServer::SmtpServer(int port_no, int backlog, bool verbose,
-                       const std::string &mailbox)
-    : Server(port_no, backlog, verbose), mailbox_(mailbox) {
-  if (mailbox_.empty()) {
-    LOG_F(ERROR, "No mailbox, dir={%s}", mailbox_.c_str());
-  } else {
-    LOG_F(INFO, "Mailbox, dir={%s}", mailbox_.c_str());
-  }
-}
-
-void SmtpServer::Mailbox() {
-  // Current path is
-  fs::path cwd(fs::current_path());
-  LOG_F(INFO, "Current path, dir={%s}", cwd.c_str());
-
-  // Mailbox dir is
-  fs::path mailbox_dir = cwd / mailbox_;
-
-  // Check if it is a directory
-  if (fs::is_directory(mailbox_dir)) {
-    LOG_F(INFO, "Mailbox dir, path={%s}", mailbox_dir.c_str());
-  } else {
-    const auto msg = "Mailbox dir invalid, path={%s}";
-    LOG_F(ERROR, msg, mailbox_dir.c_str());
-    errExit(msg, mailbox_dir.c_str());
-  }
-
-  // Read all users
-  // TODO: refactor into member function
-  for (const fs::directory_entry &file : fs::directory_iterator(mailbox_dir)) {
-    if (file.path().extension().string() == ".mbox") {
-      const auto &name = file.path().stem().string();
-      users_.emplace_back(name, file.path().string());
-      LOG_F(INFO, "Add user, name={%s}", name.c_str());
-      LOG_F(INFO, "User mbox, path={%s}", file.path().c_str());
-    }
-  }
-
-  if (users_.empty()) {
-    const auto msg = "No user found";
-    LOG_F(ERROR, msg);
-    errExit(msg);
-  }
-  LOG_F(INFO, "Total user, n={%zu}", users_.size());
-}
-
-void SmtpServer::Work(const SocketPtr &sock_ptr) {
-  // State machine here
-}
-
-void SmtpServer::Stop() {}
 
 void SigintHandler(int sig) {
   smtp_server_ptr->Stop();
@@ -77,7 +20,7 @@ struct argp_args {
   int print_name = 0;   // print name and seas login to stderr
   bool verbose = false; // verbose mode, log to stderr, otherwise log to file
   int backlog = 10;     // backlog option to listen
-  char *mailbox;        // directory of mailbox
+  const char *mailbox;  // directory of mailbox
 };
 
 struct argp_option options[] = {
@@ -108,6 +51,10 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
       argp_usage(state);
 
     args->mailbox = arg;
+    break;
+  case ARGP_KEY_END:
+    if (state->arg_num < 1)
+      args->mailbox = "\0";
     break;
   default:
     return ARGP_ERR_UNKNOWN;
@@ -155,7 +102,7 @@ int main(int argc, char *argv[]) {
 
   smtp_server.Setup();
   smtp_server.Mailbox();
-  //  smtp_server.Run();
+  smtp_server.Run();
 
   return EXIT_SUCCESS;
 }

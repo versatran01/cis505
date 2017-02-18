@@ -17,10 +17,10 @@ LIB_DIR = lib
 CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -Wall -g 
 LDFLAGS = -shared
 
-_DEPS = lpi.h server.h string_algorithm.h user.h
+_DEPS = lpi.h server.h string_algorithms.h user.h smtpserver.h
 DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
 
-_OBJS = lpi.o server.o string_algorithm.o user.o
+_OBJS = lpi.o server.o string_algorithms.o user.o 
 OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
 
 
@@ -30,7 +30,7 @@ all: $(TARGETS)
 echoserver: $(OBJS) $(OBJ_DIR)/echoserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
-smtp: $(OBJS) $(OBJ_DIR)/smtp.o
+smtp: $(OBJS) $(OBJ_DIR)/smtp.o $(OBJ_DIR)/smtpserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS) _obj
