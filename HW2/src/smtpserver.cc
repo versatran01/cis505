@@ -1,4 +1,5 @@
 #include "smtpserver.h"
+#include "fsm.hpp"
 #include "lpi.h"
 #include "string_algorithms.h"
 
@@ -7,17 +8,18 @@
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
 
-std::string ExtractCommand(const std::string &request, size_t len = 4) {
-  // Extract one more char
-  auto command = request.substr(0, len + 1);
-
-  // Convert to upper case
-  to_upper(command);
-
-  // Trim back
-  trim_back(command);
-  return command;
-}
+enum class State { Init, Ready, Wait };
+enum class Trigger {
+  CONN, // On connection
+  HELO,
+  MAIL,
+  RCPT,
+  RSET,
+  NOOP,
+  QUIT,
+  DATA,
+};
+using SmtpFsm = FSM::Fsm<State, State::Init, Trigger>;
 
 SmtpServer::SmtpServer(int port_no, int backlog, bool verbose,
                        const std::string &mailbox)
@@ -67,7 +69,16 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
   const auto &fd = *sock_ptr;
 
   // Upon connection, send service ready
-  WriteLine(fd, "220 localhost service ready");
+  //  WriteLine(fd, "220 localhost service ready");
+  auto greet = [&fd]() { WriteLine(fd, "220 localhost service ready"); };
+
+  SmtpFsm fsm;
+  fsm.add_transitions({
+      // from, to, trigger, guard, action
+      {State::Init, State::Ready, Trigger::CONN, nullptr, greet},
+  });
+
+  fsm.execute(Trigger::CONN);
 
   // State machine here
   while (true) {

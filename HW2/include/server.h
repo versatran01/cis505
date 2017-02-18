@@ -7,6 +7,7 @@
 
 bool WriteLine(int fd, std::string line);
 bool ReadLine(int fd, std::string &line);
+std::string ExtractCommand(const std::string &request, size_t len = 4);
 
 typedef void (*sa_handler_ptr)(int);
 void SetSigintHandler(sa_handler_ptr handler);

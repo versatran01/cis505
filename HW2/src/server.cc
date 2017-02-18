@@ -13,6 +13,18 @@
 #include <algorithm>
 #include <thread>
 
+std::string ExtractCommand(const std::string &request, size_t len) {
+  // Extract one more char
+  auto command = request.substr(0, len + 1);
+
+  // Convert to upper case
+  to_upper(command);
+
+  // Trim back
+  trim_back(command);
+  return command;
+}
+
 void RemoveClosedSockets(std::vector<SocketPtr> &socket_ptrs) {
   auto is_socket_closed = [](const auto &fd) { return *fd < 0; };
   socket_ptrs.erase(
