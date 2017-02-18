@@ -1,6 +1,7 @@
 #include <argp.h>
 #include <experimental/filesystem>
 
+#include "fsm.hpp"
 #include "lpi.h"
 #include "smtp.h"
 #include "string_algorithm.h"
@@ -58,7 +59,9 @@ void SmtpServer::Mailbox() {
   LOG_F(INFO, "Total user, n={%zu}", users_.size());
 }
 
-void SmtpServer::Work(const SocketPtr &sock_ptr) {}
+void SmtpServer::Work(const SocketPtr &sock_ptr) {
+  // State machine here
+}
 
 void SmtpServer::Stop() {}
 
