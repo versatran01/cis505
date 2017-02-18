@@ -32,16 +32,26 @@ void SmtpServer::Mailbox() {
 
   // Check if it is a directory
   if (fs::is_directory(mailbox_dir)) {
-    LOG_F(INFO, "Mailbox path, dir={%s}", mailbox_dir.c_str());
+    LOG_F(INFO, "Mailbox dir, path={%s}", mailbox_dir.c_str());
   } else {
-    LOG_F(FATAL, "Mailbox path invalid, path={%s}", mailbox_dir.c_str());
+    LOG_F(FATAL, "Mailbox dir invalid, path={%s}", mailbox_dir.c_str());
   }
 
   // Read all users
+  // TODO: refactor into member function
   for (const fs::directory_entry &file : fs::directory_iterator(mailbox_dir)) {
-    LOG_F(INFO, "%s", file.path().stem().c_str());
-    LOG_F(INFO, "%s", file.path().extension().c_str());
+    if (file.path().extension().string() == ".mbox") {
+      const auto &name = file.path().stem().string();
+      users_.emplace_back(name, file.path().string());
+      LOG_F(INFO, "Add user, name={%s}", name.c_str());
+      LOG_F(INFO, "User mbox, path={%s}", file.path().c_str());
+    }
   }
+
+  if (users_.empty()) {
+    LOG_F(FATAL, "No user");
+  }
+  LOG_F(INFO, "Total user, n={%zu}", users_.size());
 }
 
 void SmtpServer::Work(const SocketPtr &sock_ptr) {}
@@ -126,7 +136,7 @@ int main(int argc, char *argv[]) {
   // Setup log
   if (!args.verbose) {
     loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
-    loguru::add_file("echoserver.log", loguru::Truncate, loguru::Verbosity_MAX);
+    loguru::add_file("smtp.log", loguru::Truncate, loguru::Verbosity_MAX);
   }
 
   SetSigintHandler(SigintHandler);

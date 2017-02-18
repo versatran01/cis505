@@ -2,6 +2,9 @@
 #define STRING_ALGORITHM_H
 
 #include <string>
+// begins_with, ends_with
+bool begins_with(const std::string &s, const std::string &begin);
+bool ends_with(const std::string &s, const std::string &end);
 
 // Convert string to upper or lower
 void to_upper(std::string &s);

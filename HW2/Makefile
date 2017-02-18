@@ -14,10 +14,10 @@ OBJ_DIR = obj
 
 CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -Wall -g 
 
-_DEPS = lpi.h server.h string_algorithm.h
+_DEPS = lpi.h server.h string_algorithm.h user.h
 DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
 
-_OBJS = lpi.o server.o string_algorithm.o
+_OBJS = lpi.o server.o string_algorithm.o user.o
 OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
 
 

@@ -2,6 +2,11 @@
 #define SMTP_H
 
 #include "server.h"
+#include "user.h"
+
+class Mail {
+public:
+};
 
 class SmtpServer : public Server {
 public:
@@ -15,7 +20,7 @@ public:
 
 private:
   std::string mailbox_;
-  std::vector<std::string> users_;
+  std::vector<User> users_;
 };
 
 #endif // SMTP_H

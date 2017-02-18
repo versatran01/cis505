@@ -3,6 +3,18 @@
 #include <algorithm>
 #include <locale>
 
+bool begins_with(const std::string &s, const std::string &begin) {
+  if (begin.size() > s.size())
+    return false;
+  return std::equal(begin.begin(), begin.end(), s.begin());
+}
+
+bool ends_with(const std::string &s, const std::string &end) {
+  if (end.size() > s.size())
+    return false;
+  return std::equal(end.rbegin(), end.rend(), s.rbegin());
+}
+
 void to_upper(std::string &s) {
   std::transform(s.begin(), s.end(), s.begin(), ::toupper);
 }
