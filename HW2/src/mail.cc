@@ -11,3 +11,5 @@ bool Mail::RecipientExists(const std::string &mail_addr) const {
   return std::find(recipients_.begin(), recipients_.end(), mail_addr) !=
          recipients_.end();
 }
+
+bool Mail::IsEmpty() const { return sender_.empty() && recipients_.empty(); }

@@ -20,6 +20,7 @@ public:
   void Reset();
 
   bool RecipientExists(const std::string &mail_addr) const;
+  bool IsEmpty() const;
 
 private:
   std::string sender_;

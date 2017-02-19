@@ -8,13 +8,11 @@
 
 #include <algorithm>
 #include <experimental/filesystem>
-#include <regex>
 
 namespace fs = std::experimental::filesystem;
 
 enum class State { Init, Idle, Wait, Mail, Rcpt, Data, Send };
 enum class Trigger {
-  CONN, // On connection
   HELO,
   MAIL,
   RCPT,
@@ -22,11 +20,20 @@ enum class Trigger {
   NOOP,
   QUIT,
   DATA,
-  TEXT,
-  DOT,
-  SENT // Sent mail
+  TEXT_,
+  CONN_, // On connection
+  EOML_, // End of mail
+  SENT_  // Sent mail
 };
 using SmtpFsm = FSM::Fsm<State, State::Init, Trigger>;
+
+void SmtpReply(int fd, int code, const std::string &msg = "") {
+  if (code == 503) {
+    const auto reply = "503 Bad sequence of commands";
+    WriteLine(fd, reply);
+    LOG_F(WARNING, "[%d] %s", fd, reply);
+  }
+}
 
 SmtpServer::SmtpServer(int port_no, int backlog, bool verbose,
                        const std::string &mailbox)
@@ -87,30 +94,35 @@ void SmtpServer::Mailbox() {
 void SmtpServer::Work(const SocketPtr &sock_ptr) {
   LOG_F(INFO, "Inside SmtpServer::Work");
   const auto &fd = *sock_ptr;
+  Mail mail;
 
   // Actions
   auto greet = [&fd]() { WriteLine(fd, "220 localhost service ready"); };
   auto ok = [&fd]() { WriteLine(fd, "250 OK"); };
+  auto ok_helo = [&fd]() { WriteLine(fd, "250 localhost"); };
+  auto reset = [&] {
+    mail.Reset();
+    ok();
+  };
 
   SmtpFsm fsm;
   // from, to, trigger, guard, action
   fsm.add_transitions({
-      {State::Init, State::Idle, Trigger::CONN, nullptr, greet},
-      {State::Idle, State::Wait, Trigger::HELO, nullptr, ok},
+      {State::Init, State::Idle, Trigger::CONN_, nullptr, greet},
+      {State::Idle, State::Wait, Trigger::HELO, nullptr, ok_helo},
       {State::Wait, State::Mail, Trigger::MAIL, nullptr, ok},
       {State::Mail, State::Rcpt, Trigger::RCPT, nullptr, ok},
       {State::Rcpt, State::Rcpt, Trigger::RCPT, nullptr, ok},
       {State::Rcpt, State::Data, Trigger::DATA, nullptr, ok},
-      {State::Data, State::Send, Trigger::DOT, nullptr, ok},
-      {State::Send, State::Wait, Trigger::SENT, nullptr, ok},
+      {State::Data, State::Send, Trigger::EOML_, nullptr, ok},
+      {State::Send, State::Wait, Trigger::SENT_, nullptr, ok},
+      {State::Mail, State::Wait, Trigger::RSET, nullptr, reset},
+      {State::Rcpt, State::Wait, Trigger::RSET, nullptr, reset},
   });
 
   // On connection
-  fsm.execute(Trigger::CONN);
+  fsm.execute(Trigger::CONN_);
   CHECK_F(fsm.state() == State::Idle, "Init -- CONN/greet --> Idle");
-
-  // Create a mail
-  Mail mail;
 
   // State machine here
   while (true) {
@@ -131,9 +143,7 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
       // ===== HELO =====
       // State has to be Idle
       if (fsm.state() != State::Idle) {
-        const auto msg = "503 Bad sequence of commands";
-        WriteLine(fd, msg);
-        LOG_F(WARNING, "[%d] %s", fd, msg);
+        SmtpReply(fd, 503);
         continue;
       }
 
@@ -158,9 +168,7 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
 
       // State has to be Wait
       if (fsm.state() != State::Wait) {
-        const auto msg = "503 Bad sequence of commands";
-        WriteLine(fd, msg);
-        LOG_F(WARNING, "[%d] %s", fd, msg);
+        SmtpReply(fd, 503);
         continue;
       }
 
@@ -187,9 +195,7 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
 
       // State has to be Mail or Rcpt
       if (!(fsm.state() == State::Mail || fsm.state() == State::Rcpt)) {
-        const auto msg = "503 Bad sequence of commands";
-        WriteLine(fd, msg);
-        LOG_F(WARNING, "[%d] %s", fd, msg);
+        SmtpReply(fd, 503);
         continue;
       }
 
@@ -219,22 +225,38 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
         LOG_F(WARNING, "[%d] Recipient already exists, mail_addr={%s}", fd,
               mail_addr.c_str());
       }
+
       fsm.execute(Trigger::RCPT);
+
+      LOG_F(INFO, "[%d] Number of recipients, n={%zu}",
+            mail.recipients().size());
 
       const auto msg = "State transition: Mail/Rcpt -- RCPT/ok --> Rcpt";
       CHECK_F(fsm.state() == State::Rcpt);
       LOG_F(INFO, "[%d] %s", fd, msg);
 
     } else if (command == "DATA") {
+      // ===== DATA ====
       fsm.execute(Trigger::DATA);
     } else if (command == "RSET") {
+      // ===== RSET =====
+      if (!(fsm.state() == State::Mail || fsm.state() == State::Rcpt)) {
+        SmtpReply(fd, 503);
+        continue;
+      }
+
       fsm.execute(Trigger::RSET);
+
+      const auto msg = "State transition: Mail/Rcpt -- RSET/reset --> Wait";
+      CHECK_F(fsm.state() == State::Wait);
+      CHECK_F(mail.IsEmpty());
+      LOG_F(INFO, "[%d] %s", fd, msg);
     } else if (command == "NOOP") {
       fsm.execute(Trigger::NOOP);
     } else if (command == "QUIT") {
       fsm.execute(Trigger::QUIT);
     } else if (command == ".") {
-      fsm.execute(Trigger::DOT);
+      fsm.execute(Trigger::EOML_);
     } else {
     }
   }
