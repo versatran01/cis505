@@ -11,12 +11,12 @@
 
 EchoServer *echo_server_ptr = nullptr;
 
-void EchoServer::Work(const SocketPtr &sock_ptr) {
+void EchoServer::Work(SocketPtr sock_ptr) {
   auto fd = *sock_ptr;
   LOG_F(INFO, "[%d] Inside EchoServer::Work", fd);
 
   // Send greeting
-  auto greeting = "+OK Server ready (Author: Chao Qu / quchao)";
+  const auto greeting = "+OK Server ready (Author: Chao Qu / quchao)";
   WriteLine(fd, greeting);
 
   // Handle client
@@ -24,10 +24,6 @@ void EchoServer::Work(const SocketPtr &sock_ptr) {
     std::string request;
     ReadLine(fd, request);
     trim(request);
-
-    // DEBUG_PRINT
-    //    if (verbose_)
-    //      fprintf(stderr, "[%d] C: %s\n", fd, request.c_str());
     LOG_F(INFO, "[%d] Read, str={%s}", fd, request.c_str());
 
     // Extract command
@@ -40,35 +36,24 @@ void EchoServer::Work(const SocketPtr &sock_ptr) {
       trim_front(text);
       auto response = std::string("+OK ") + text;
       WriteLine(fd, response);
-
-      // DEBUG_PRINT
-      //      if (verbose_)
-      //        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
       LOG_F(INFO, "[%d] Write, str={%s}", fd, response.c_str());
+
     } else if (command == "QUIT") {
-      const auto response = std::string("+OK Goodbye!");
+      const auto response = "+OK Goodbye!";
       WriteLine(fd, response);
-
-      // DEBUG_PRINT
-      //      if (verbose_)
-      //        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
-      LOG_F(INFO, "[%d] Write, str={%s}", fd, response.c_str());
-      //      if (verbose_)
-      //        fprintf(stderr, "[%d] Connection closed\n", fd);
+      LOG_F(INFO, "[%d] Write, str={%s}", fd, response);
 
       // Close socket and mark it as closed
       close(fd);
       LOG_F(INFO, "[%d] Connection closed", fd);
+
       *sock_ptr = -1;
       return;
-    } else {
-      auto response = std::string("-ERR Unknown command");
-      WriteLine(fd, response);
 
-      // DEBUG_PRINT
-      //      if (verbose_)
-      //        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
-      LOG_F(INFO, "[%d] Write, str={%s}", fd, response.c_str());
+    } else {
+      const auto response = "-ERR Unknown command";
+      WriteLine(fd, response);
+      LOG_F(INFO, "[%d] Write, str={%s}", fd, response);
     }
   }
 }

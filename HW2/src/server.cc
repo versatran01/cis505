@@ -174,7 +174,7 @@ void Server::BindAddress() {
         static_cast<int>(server_addr.sin_port));
 }
 
-void Server::ListenToConn() {
+void Server::ListenSocket() {
   // Listen to incoming connection
   if (listen(listen_fd_, backlog_) == -1) {
     const auto msg = "Failed to listen to connections";
@@ -189,7 +189,7 @@ void Server::Setup() {
   CreateSocket();
   ReuseAddrPort();
   BindAddress();
-  ListenToConn();
+  ListenSocket();
 }
 
 void Server::Run() {
@@ -214,7 +214,7 @@ void Server::Run() {
     //    if (verbose_)
     //      fprintf(stderr, "[%d] New connection\n", connect_fd);
 
-    const auto connect_fd_ptr = std::make_shared<int>(connect_fd);
+    auto connect_fd_ptr = std::make_shared<int>(connect_fd);
     open_sockets_.push_back(connect_fd_ptr);
 
     // Create a thread to handle connection and detach
@@ -232,12 +232,14 @@ void Server::Stop() {
   close(listen_fd_);
   LOG_F(INFO, "Close listen socket, fd={%d}, sig={SIGINT}", listen_fd_);
 
+  LOG_F(INFO, "Open sockets, num_fd={%zu}", open_sockets_.size());
   RemoveClosedSockets(open_sockets_);
-  LOG_F(INFO, "Remove closed sockets, num_fd_open={%d}",
-        static_cast<int>(open_sockets_.size()));
+  LOG_F(INFO, "Remove closed sockets, num_fd={%zu}", open_sockets_.size());
 
   const std::string response("-ERR Server shutting down");
   for (const auto fd_ptr : open_sockets_) {
+    if (*fd_ptr < 0)
+      continue;
     WriteLine(*fd_ptr, response);
     LOG_F(INFO, "[%d] Write, str={%s}", *fd_ptr, response);
     close(*fd_ptr);

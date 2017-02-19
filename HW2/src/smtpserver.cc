@@ -78,7 +78,7 @@ void SmtpServer::Mailbox() {
   LOG_F(INFO, "Total user, n={%zu}", users_.size());
 }
 
-void SmtpServer::Work(const SocketPtr &sock_ptr) {
+void SmtpServer::Work(SocketPtr sock_ptr) {
   LOG_F(INFO, "Inside SmtpServer::Work");
   const auto &fd = *sock_ptr;
   Mail mail;

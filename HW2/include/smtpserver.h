@@ -12,7 +12,7 @@ public:
   SmtpServer(int port_no, int backlog, bool verbose,
              const std::string &mailbox);
 
-  virtual void Work(const SocketPtr &sock_ptr) override;
+  virtual void Work(SocketPtr sock_ptr) override;
 
   void Mailbox();
   bool UserExists(const std::string &mail_addr) const;

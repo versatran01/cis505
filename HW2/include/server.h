@@ -27,14 +27,14 @@ public:
   void Setup();
   void Run();
 
-  virtual void Work(const SocketPtr &sock_ptr) = 0;
+  virtual void Work(SocketPtr sock_ptr) = 0;
   virtual void Stop();
 
 protected:
   void CreateSocket();
   void ReuseAddrPort();
   void BindAddress();
-  void ListenToConn();
+  void ListenSocket();
 
   int listen_fd_;
   std::vector<SocketPtr> open_sockets_;
