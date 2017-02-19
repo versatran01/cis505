@@ -11,18 +11,7 @@
 namespace fs = std::experimental::filesystem;
 
 enum class State { Init, Idle, Wait, Mail, Rcpt, Data, Send };
-enum class Trigger {
-  HELO,
-  MAIL,
-  RCPT,
-  RSET,
-  NOOP,
-  QUIT,
-  DATA,
-  CONN_, // On connection
-  EOML_, // End of mail
-  SENT_  // Sent mail
-};
+enum class Trigger { HELO, MAIL, RCPT, RSET, QUIT, DATA, CONN_, EOML_, SENT_ };
 using SmtpFsm = FSM::Fsm<State, State::Init, Trigger>;
 
 void SmtpReply(int fd, int code, const std::string &msg = "") {
@@ -98,7 +87,8 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
   auto greet = [&fd]() { WriteLine(fd, "220 localhost service ready"); };
   auto ok = [&fd]() { WriteLine(fd, "250 OK"); };
   auto ok_helo = [&fd]() { WriteLine(fd, "250 localhost"); };
-  auto ok_reset = [&] {
+  auto reset = [&]() { mail.Clear(); };
+  auto ok_reset = [&]() {
     mail.Clear();
     ok();
   };
@@ -114,7 +104,7 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
       {State::Rcpt, State::Rcpt, Trigger::RCPT, nullptr, ok},
       {State::Rcpt, State::Data, Trigger::DATA, nullptr, ok_data},
       {State::Data, State::Send, Trigger::EOML_, nullptr, ok},
-      {State::Send, State::Wait, Trigger::SENT_, nullptr, nullptr},
+      {State::Send, State::Wait, Trigger::SENT_, nullptr, reset},
       {State::Mail, State::Wait, Trigger::RSET, nullptr, ok_reset},
       {State::Rcpt, State::Wait, Trigger::RSET, nullptr, ok_reset},
   });
@@ -167,13 +157,14 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
         LOG_F(INFO, "[%d] Start sending to recipient, mail_addr={%s}", fd,
               recipient.c_str());
 
-        Send(user, mail);
+        SendMailToUser(mail, user);
 
         LOG_F(INFO, "[%d] Finish sending to recipient, mail_addr={%s}", fd,
               recipient.c_str());
       }
 
-      LOG_F(INFO, "[%d] Finish sending mail to all recipients", fd);
+      LOG_F(INFO, "[%d] Finish sending mail to all recipients, n={zu}", fd,
+            mail.recipients().size());
 
       fsm.execute(Trigger::SENT_);
 
@@ -300,7 +291,7 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
       CHECK_F(mail.Empty());
       LOG_F(INFO, "[%d] %s", fd, msg);
     } else if (command == "NOOP") {
-      fsm.execute(Trigger::NOOP);
+      LOG_F(INFO, "[%d] NOOP", fd);
     } else if (command == "DATA") {
       // ===== DATA =====
       if (fsm.state() != State::Rcpt) {
@@ -314,8 +305,24 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
       LOG_F(INFO, "[%d] %s", fd, msg);
 
     } else if (command == "QUIT") {
-      fsm.execute(Trigger::QUIT);
+      const auto msg = "221 localhost Serice closing";
+      WriteLine(fd, msg);
+
+      // DEBUG_PRINT
+      //      if (verbose_)
+      //        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
+      LOG_F(INFO, "[%d] Write to fd, str={%s}", fd, msg);
+      //      if (verbose_)
+      //        fprintf(stderr, "[%d] Connection closed\n", fd);
+
+      // Close socket and mark it as closed
+      close(fd);
+      *sock_ptr = -1;
+      return;
     } else {
+      const auto msg = "500 Syntax error, command unrecognized";
+      LOG_F(WARNING, "[%d] %s cmd={%s}", fd, msg, command);
+      WriteLine(fd, msg);
     }
   }
 }
@@ -329,7 +336,7 @@ bool SmtpServer::UserExists(const std::string &mail_addr) const {
   return std::find_if(users_.begin(), users_.end(), pred) != users_.end();
 }
 
-bool SmtpServer::Send(const User &user, const Mail &mail) const {
+bool SmtpServer::SendMailToUser(const Mail &mail, const User &user) const {
   // Not implemented
   return true;
 }
