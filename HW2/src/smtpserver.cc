@@ -1,7 +1,6 @@
 #include "smtpserver.h"
 #include "fsm.hpp"
 #include "lpi.h"
-#include "mail.h"
 #include "string_algorithms.h"
 
 #include "loguru.hpp"
@@ -20,7 +19,6 @@ enum class Trigger {
   NOOP,
   QUIT,
   DATA,
-  TEXT_,
   CONN_, // On connection
   EOML_, // End of mail
   SENT_  // Sent mail
@@ -100,10 +98,11 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
   auto greet = [&fd]() { WriteLine(fd, "220 localhost service ready"); };
   auto ok = [&fd]() { WriteLine(fd, "250 OK"); };
   auto ok_helo = [&fd]() { WriteLine(fd, "250 localhost"); };
-  auto reset = [&] {
-    mail.Reset();
+  auto ok_reset = [&] {
+    mail.Clear();
     ok();
   };
+  auto ok_data = [&fd]() { WriteLine(fd, "354 Start mail input"); };
 
   SmtpFsm fsm;
   // from, to, trigger, guard, action
@@ -113,11 +112,11 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
       {State::Wait, State::Mail, Trigger::MAIL, nullptr, ok},
       {State::Mail, State::Rcpt, Trigger::RCPT, nullptr, ok},
       {State::Rcpt, State::Rcpt, Trigger::RCPT, nullptr, ok},
-      {State::Rcpt, State::Data, Trigger::DATA, nullptr, ok},
+      {State::Rcpt, State::Data, Trigger::DATA, nullptr, ok_data},
       {State::Data, State::Send, Trigger::EOML_, nullptr, ok},
-      {State::Send, State::Wait, Trigger::SENT_, nullptr, ok},
-      {State::Mail, State::Wait, Trigger::RSET, nullptr, reset},
-      {State::Rcpt, State::Wait, Trigger::RSET, nullptr, reset},
+      {State::Send, State::Wait, Trigger::SENT_, nullptr, nullptr},
+      {State::Mail, State::Wait, Trigger::RSET, nullptr, ok_reset},
+      {State::Rcpt, State::Wait, Trigger::RSET, nullptr, ok_reset},
   });
 
   // On connection
@@ -133,6 +132,55 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
     if (verbose_)
       fprintf(stderr, "[%d] C: %s\n", fd, request.c_str());
     LOG_F(INFO, "[%d] Read, str={%s}", fd, request.c_str());
+
+    // Text state
+    if (fsm.state() == State::Data) {
+      if (request == ".") {
+        // End of mail
+        fsm.execute(Trigger::EOML_);
+        const auto msg = "State transition: Data -- ./ok --> Send";
+        CHECK_F(fsm.state() == State::Send);
+        LOG_F(INFO, "[%d] %s", fd, msg);
+        continue;
+      }
+
+      mail.AddLine(request);
+      LOG_F(INFO, "[%d] Number of lines, n={%zu}", fd, mail.data().size());
+      continue;
+    }
+
+    // Send mail to mbox
+    if (fsm.state() == State::Send) {
+      for (const auto &recipient : mail.recipients()) {
+        auto user_iter = std::find_if(users_.begin(), users_.end(),
+                                      [&recipient](const User &user) {
+                                        return user.addr() == recipient;
+                                      });
+        // This should never happen, because we checked this in Rcpt state
+        if (user_iter == users_.end()) {
+          LOG_F(ERROR, "[%d] Could not find recipient, mail_addr={%s}", fd,
+                recipient.c_str());
+          continue;
+        }
+
+        const User &user = *user_iter;
+        LOG_F(INFO, "[%d] Start sending to recipient, mail_addr={%s}", fd,
+              recipient.c_str());
+
+        Send(user, mail);
+
+        LOG_F(INFO, "[%d] Finish sending to recipient, mail_addr={%s}", fd,
+              recipient.c_str());
+      }
+
+      LOG_F(INFO, "[%d] Finish sending mail to all recipients", fd);
+
+      fsm.execute(Trigger::SENT_);
+
+      const auto msg = "State transition: Send -- SENT_/ --> Wait";
+      CHECK_F(fsm.state() == State::Wait);
+      LOG_F(INFO, "[%d] %s", fd, msg);
+    }
 
     // Extract command, for now assume no preceeding white spaces
     auto command = ExtractCommand(request);
@@ -249,14 +297,24 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
 
       const auto msg = "State transition: Mail/Rcpt -- RSET/reset --> Wait";
       CHECK_F(fsm.state() == State::Wait);
-      CHECK_F(mail.IsEmpty());
+      CHECK_F(mail.Empty());
       LOG_F(INFO, "[%d] %s", fd, msg);
     } else if (command == "NOOP") {
       fsm.execute(Trigger::NOOP);
+    } else if (command == "DATA") {
+      // ===== DATA =====
+      if (fsm.state() != State::Rcpt) {
+        SmtpReply(fd, 503);
+      }
+
+      fsm.execute(Trigger::DATA);
+
+      const auto msg = "State transition: Rcpt -- Data/ok_data --> Data";
+      CHECK_F(fsm.state() == State::Data);
+      LOG_F(INFO, "[%d] %s", fd, msg);
+
     } else if (command == "QUIT") {
       fsm.execute(Trigger::QUIT);
-    } else if (command == ".") {
-      fsm.execute(Trigger::EOML_);
     } else {
     }
   }
@@ -269,4 +327,9 @@ bool SmtpServer::UserExists(const std::string &mail_addr) const {
     return user.addr() == mail_addr;
   };
   return std::find_if(users_.begin(), users_.end(), pred) != users_.end();
+}
+
+bool SmtpServer::Send(const User &user, const Mail &mail) const {
+  // Not implemented
+  return true;
 }

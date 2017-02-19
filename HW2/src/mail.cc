@@ -2,9 +2,10 @@
 
 #include <algorithm>
 
-void Mail::Reset() {
+void Mail::Clear() {
   sender_.clear();
   recipients_.clear();
+  data_.clear();
 }
 
 bool Mail::RecipientExists(const std::string &mail_addr) const {
@@ -12,4 +13,6 @@ bool Mail::RecipientExists(const std::string &mail_addr) const {
          recipients_.end();
 }
 
-bool Mail::IsEmpty() const { return sender_.empty() && recipients_.empty(); }
+bool Mail::Empty() const {
+  return sender_.empty() && recipients_.empty() && data_.empty();
+}

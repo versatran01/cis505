@@ -11,20 +11,28 @@ public:
 
   Mail() = default;
 
+  // Getters
   const std::string &sender() const { return sender_; }
   const std::vector<std::string> &recipients() const { return recipients_; }
   const TimePointSys &time() const { return time_; }
+  const std::vector<std::string> &data() const { return data_; }
 
-  void set_sender(const std::string &from) { sender_ = from; }
-  void AddRecipient(const std::string &to) { recipients_.push_back(to); }
-  void Reset();
+  // Setters
+  void set_sender(const std::string &sender) { sender_ = sender; }
+  void AddRecipient(const std::string &recipient) {
+    recipients_.push_back(recipient);
+  }
+  void AddLine(const std::string &line) { data_.push_back(line); }
+  void Clear();
 
+  // Methods
   bool RecipientExists(const std::string &mail_addr) const;
-  bool IsEmpty() const;
+  bool Empty() const;
 
 private:
-  std::string sender_;
-  std::vector<std::string> recipients_;
+  std::string sender_;                  // sender's mail address
+  std::vector<std::string> recipients_; // recipients' mail address
+  std::vector<std::string> data_;
   TimePointSys time_;
 };
 

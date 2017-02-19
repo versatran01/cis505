@@ -1,6 +1,7 @@
 #ifndef SMTP_SERVER_H
 #define SMTP_SERVER_H
 
+#include "mail.h"
 #include "server.h"
 #include "user.h"
 
@@ -16,10 +17,12 @@ public:
 
   void Mailbox();
   bool UserExists(const std::string &mail_addr) const;
+  bool Send(const User &user, const Mail &mail) const;
 
 private:
-  std::string mailbox_;
+  std::string mailbox_; // name of mailbox
   std::vector<User> users_;
+
   std::regex mail_from_regex_;
   std::regex rcpt_to_regex_;
   std::regex helo_regex_;
