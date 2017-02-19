@@ -30,20 +30,22 @@ void RemoveClosedSockets(std::vector<SocketPtr> &socket_ptrs) {
       socket_ptrs.end());
 }
 
-bool WriteLine(int fd, std::string line) {
-  line.append("\r\n");
-  const int len = line.size();
+bool WriteLine(int fd, const std::string &line) {
+  const auto line_crlf = line + "\r\n";
+
+  const int len = line_crlf.size();
   int num_sent = 0;
 
   while (num_sent < len) {
-    int n = write(fd, &line.data()[num_sent], len - num_sent);
-    // write() failed
+    int n = write(fd, &line_crlf.data()[num_sent], len - num_sent);
     if (n == -1) {
+      // Interrupted, restart write()
       if (errno == EINTR) {
-        // Interrupted, restart write
         continue;
       }
 
+      // write() failed
+      LOG_F(WARNING, "[%d] Write failed", fd);
       return false;
     }
     num_sent += n;
@@ -70,6 +72,7 @@ bool ReadLine(int fd, std::string &line) {
         continue;
       }
 
+      LOG_F(WARNING, "[%d] Read failed", fd);
       return false;
     }
 
@@ -208,8 +211,8 @@ void Server::Run() {
           client_ip, static_cast<int>(client_addr.sin_port));
 
     // DEBUG_PRINT
-    if (verbose_)
-      fprintf(stderr, "[%d] New connection\n", connect_fd);
+    //    if (verbose_)
+    //      fprintf(stderr, "[%d] New connection\n", connect_fd);
 
     const auto connect_fd_ptr = std::make_shared<int>(connect_fd);
     open_sockets_.push_back(connect_fd_ptr);

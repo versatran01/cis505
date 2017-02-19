@@ -12,8 +12,8 @@
 EchoServer *echo_server_ptr = nullptr;
 
 void EchoServer::Work(const SocketPtr &sock_ptr) {
-  LOG_F(INFO, "Inside EchoServer::Work");
   auto fd = *sock_ptr;
+  LOG_F(INFO, "[%d] Inside EchoServer::Work", fd);
 
   // Send greeting
   auto greeting = "+OK Server ready (Author: Chao Qu / quchao)";
@@ -26,12 +26,13 @@ void EchoServer::Work(const SocketPtr &sock_ptr) {
     trim(request);
 
     // DEBUG_PRINT
-    if (verbose_)
-      fprintf(stderr, "[%d] C: %s\n", fd, request.c_str());
-    LOG_F(INFO, "Read from fd={%d}, str={%s}", fd, request.c_str());
+    //    if (verbose_)
+    //      fprintf(stderr, "[%d] C: %s\n", fd, request.c_str());
+    LOG_F(INFO, "[%d] Read, str={%s}", fd, request.c_str());
 
     // Extract command
-    auto command = ExtractCommand(request);
+    const auto command = ExtractCommand(request);
+    LOG_F(INFO, "[%d] Extract command, cmd={%s}", fd, command.c_str());
 
     // Check if it is ECHO or QUIT
     if (command == "ECHO") {
@@ -41,24 +42,23 @@ void EchoServer::Work(const SocketPtr &sock_ptr) {
       WriteLine(fd, response);
 
       // DEBUG_PRINT
-      if (verbose_)
-        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
-      LOG_F(INFO, "cmd={ECHO}, Write to fd={%d}, str={%s}", fd,
-            response.c_str());
+      //      if (verbose_)
+      //        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
+      LOG_F(INFO, "[%d] Write, str={%s}", fd, response.c_str());
     } else if (command == "QUIT") {
-      auto response = std::string("+OK Goodbye!");
+      const auto response = std::string("+OK Goodbye!");
       WriteLine(fd, response);
 
       // DEBUG_PRINT
-      if (verbose_)
-        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
-      LOG_F(INFO, "cmd={QUIT}, Write to fd={%d}, str={%s}", fd,
-            response.c_str());
-      if (verbose_)
-        fprintf(stderr, "[%d] Connection closed\n", fd);
+      //      if (verbose_)
+      //        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
+      LOG_F(INFO, "[%d] Write, str={%s}", fd, response.c_str());
+      //      if (verbose_)
+      //        fprintf(stderr, "[%d] Connection closed\n", fd);
 
       // Close socket and mark it as closed
       close(fd);
+      LOG_F(INFO, "[%d] Connection closed", fd);
       *sock_ptr = -1;
       return;
     } else {
@@ -66,10 +66,9 @@ void EchoServer::Work(const SocketPtr &sock_ptr) {
       WriteLine(fd, response);
 
       // DEBUG_PRINT
-      if (verbose_)
-        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
-      LOG_F(INFO, "cmd={UNKNOWN}, Write to fd={%d}, str={%s}", fd,
-            response.c_str());
+      //      if (verbose_)
+      //        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
+      LOG_F(INFO, "[%d] Write, str={%s}", fd, response.c_str());
     }
   }
 }

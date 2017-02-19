@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-bool WriteLine(int fd, std::string line);
+bool WriteLine(int fd, const std::string &line);
 bool ReadLine(int fd, std::string &line);
 std::string ExtractCommand(const std::string &request, size_t len = 4);
 
