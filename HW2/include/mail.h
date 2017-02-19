@@ -28,6 +28,8 @@ public:
   // Methods
   bool RecipientExists(const std::string &mail_addr) const;
   bool Empty() const;
+  void Stamp() { time_ = std::chrono::system_clock::now(); }
+  std::string TimeStr() const;
 
 private:
   std::string sender_;                  // sender's mail address

@@ -127,7 +127,10 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
     if (fsm.state() == State::Data) {
       if (request == ".") {
         // End of mail
+        mail.Stamp(); // Time stamp mail
+
         fsm.execute(Trigger::EOML_);
+
         const auto msg = "State transition: Data -- ./ok --> Send";
         CHECK_F(fsm.state() == State::Send);
         LOG_F(INFO, "[%d] %s", fd, msg);
@@ -157,7 +160,7 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
         LOG_F(INFO, "[%d] Start sending to recipient, mail_addr={%s}", fd,
               recipient.c_str());
 
-        SendMailToUser(mail, user);
+        user.WriteMail(mail);
 
         LOG_F(INFO, "[%d] Finish sending to recipient, mail_addr={%s}", fd,
               recipient.c_str());
@@ -334,9 +337,4 @@ bool SmtpServer::UserExists(const std::string &mail_addr) const {
     return user.addr() == mail_addr;
   };
   return std::find_if(users_.begin(), users_.end(), pred) != users_.end();
-}
-
-bool SmtpServer::SendMailToUser(const Mail &mail, const User &user) const {
-  // Not implemented
-  return true;
 }

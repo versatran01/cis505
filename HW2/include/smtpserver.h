@@ -17,7 +17,6 @@ public:
 
   void Mailbox();
   bool UserExists(const std::string &mail_addr) const;
-  bool SendMailToUser(const Mail &mail, const User &user) const;
 
 private:
   std::string mailbox_; // name of mailbox
