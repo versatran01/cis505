@@ -73,23 +73,6 @@ void EchoServer::Work(const SocketPtr &sock_ptr) {
   }
 }
 
-void EchoServer::Stop() {
-  // Close listen socket
-  close(listen_fd_);
-  LOG_F(INFO, "Close listen socket, fd={%d}, sig={SIGINT}", listen_fd_);
-
-  RemoveClosedSockets(open_sockets_);
-  LOG_F(INFO, "Remove closed sockets, num_fd_open={%d}",
-        static_cast<int>(open_sockets_.size()));
-
-  const std::string response("-ERR Server shutting down");
-  for (const auto fd_ptr : open_sockets_) {
-    WriteLine(*fd_ptr, response);
-    close(*fd_ptr);
-    LOG_F(INFO, "Close client socket, fd={%d}", *fd_ptr);
-  }
-}
-
 void SigintHandler(int sig) {
   echo_server_ptr->Stop();
   exit(EXIT_SUCCESS);

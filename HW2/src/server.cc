@@ -226,3 +226,21 @@ void Server::Run() {
     LOG_F(INFO, "Remaining open connections, num={%zu}", open_sockets_.size());
   }
 }
+
+void Server::Stop() {
+  // Close listen socket
+  close(listen_fd_);
+  LOG_F(INFO, "Close listen socket, fd={%d}, sig={SIGINT}", listen_fd_);
+
+  RemoveClosedSockets(open_sockets_);
+  LOG_F(INFO, "Remove closed sockets, num_fd_open={%d}",
+        static_cast<int>(open_sockets_.size()));
+
+  const std::string response("-ERR Server shutting down");
+  for (const auto fd_ptr : open_sockets_) {
+    WriteLine(*fd_ptr, response);
+    LOG_F(INFO, "[%d] Write, str={%s}", *fd_ptr, response);
+    close(*fd_ptr);
+    LOG_F(INFO, "Close client socket, fd={%d}", *fd_ptr);
+  }
+}

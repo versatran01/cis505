@@ -11,7 +11,6 @@ public:
   using Server::Server;
 
   virtual void Work(const SocketPtr &sock_ptr) override;
-  virtual void Stop() override;
 };
 
 #endif // ECHOSERVER_H

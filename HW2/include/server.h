@@ -28,7 +28,7 @@ public:
   void Run();
 
   virtual void Work(const SocketPtr &sock_ptr) = 0;
-  virtual void Stop() = 0;
+  virtual void Stop();
 
 protected:
   void CreateSocket();

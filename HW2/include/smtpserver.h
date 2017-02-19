@@ -13,7 +13,6 @@ public:
              const std::string &mailbox);
 
   virtual void Work(const SocketPtr &sock_ptr) override;
-  virtual void Stop() override;
 
   void Mailbox();
   bool UserExists(const std::string &mail_addr) const;
