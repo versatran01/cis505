@@ -10,10 +10,12 @@ public:
 
   const std::string &name() const { return name_; }
   const std::string &mbox() const { return mbox_; }
+  const std::string &addr() const { return addr_; }
 
 private:
   std::string name_;
   std::string mbox_;
+  std::string addr_;
 };
 
 #endif // USER_H

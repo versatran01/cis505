@@ -1,14 +1,18 @@
 #include "smtpserver.h"
 #include "fsm.hpp"
 #include "lpi.h"
+#include "mail.h"
 #include "string_algorithms.h"
 
 #include "loguru.hpp"
 
+#include <algorithm>
 #include <experimental/filesystem>
+#include <regex>
+
 namespace fs = std::experimental::filesystem;
 
-enum class State { Init, Ready, Wait };
+enum class State { Init, Idle, Wait, Mail, Rcpt, Data, Send };
 enum class Trigger {
   CONN, // On connection
   HELO,
@@ -18,6 +22,9 @@ enum class Trigger {
   NOOP,
   QUIT,
   DATA,
+  TEXT,
+  DOT,
+  SENT // Sent mail
 };
 using SmtpFsm = FSM::Fsm<State, State::Init, Trigger>;
 
@@ -29,6 +36,19 @@ SmtpServer::SmtpServer(int port_no, int backlog, bool verbose,
   } else {
     LOG_F(INFO, "Mailbox, dir={%s}", mailbox_.c_str());
   }
+
+  // Construct regular expression for mail from and rcpt to and helo
+  helo_regex_ = std::regex("HELO ([[:alnum:]]+)", std::regex::icase);
+
+  // TODO: Need to fix this pattern
+  std::string mail_addr_pattern("[[:alnum:]]+[[:alnum:].]*");
+  mail_addr_pattern = mail_addr_pattern + "@" + mail_addr_pattern;
+
+  std::string mail_from_pattern = "MAIL FROM:[ ]*<(" + mail_addr_pattern + ")>";
+  mail_from_regex_ = std::regex(mail_from_pattern, std::regex::icase);
+
+  std::string rcpt_to_pattern = "RCPT TO:[ ]*<(" + mail_addr_pattern + ")>";
+  rcpt_to_regex_ = std::regex(rcpt_to_pattern, std::regex::icase);
 }
 
 void SmtpServer::Mailbox() {
@@ -68,71 +88,163 @@ void SmtpServer::Work(const SocketPtr &sock_ptr) {
   LOG_F(INFO, "Inside SmtpServer::Work");
   const auto &fd = *sock_ptr;
 
-  // Upon connection, send service ready
-  //  WriteLine(fd, "220 localhost service ready");
+  // Actions
   auto greet = [&fd]() { WriteLine(fd, "220 localhost service ready"); };
+  auto ok = [&fd]() { WriteLine(fd, "250 OK"); };
 
   SmtpFsm fsm;
+  // from, to, trigger, guard, action
   fsm.add_transitions({
-      // from, to, trigger, guard, action
-      {State::Init, State::Ready, Trigger::CONN, nullptr, greet},
+      {State::Init, State::Idle, Trigger::CONN, nullptr, greet},
+      {State::Idle, State::Wait, Trigger::HELO, nullptr, ok},
+      {State::Wait, State::Mail, Trigger::MAIL, nullptr, ok},
+      {State::Mail, State::Rcpt, Trigger::RCPT, nullptr, ok},
+      {State::Rcpt, State::Rcpt, Trigger::RCPT, nullptr, ok},
+      {State::Rcpt, State::Data, Trigger::DATA, nullptr, ok},
+      {State::Data, State::Send, Trigger::DOT, nullptr, ok},
+      {State::Send, State::Wait, Trigger::SENT, nullptr, ok},
   });
 
+  // On connection
   fsm.execute(Trigger::CONN);
+  CHECK_F(fsm.state() == State::Idle, "Init -- CONN/greet --> Idle");
+
+  // Create a mail
+  Mail mail;
 
   // State machine here
   while (true) {
     std::string request;
     ReadLine(fd, request);
-    trim(request);
 
     // DEBUG_PRINT
     if (verbose_)
       fprintf(stderr, "[%d] C: %s\n", fd, request.c_str());
-    LOG_F(INFO, "Read from fd={%d}, str={%s}", fd, request.c_str());
+    LOG_F(INFO, "[%d] Read, str={%s}", fd, request.c_str());
 
-    // Extract command
+    // Extract command, for now assume no preceeding white spaces
     auto command = ExtractCommand(request);
+    LOG_F(INFO, "[%d] cmd={%s}", fd, command.c_str());
 
-    // Check if it is ECHO or QUIT
-    if (command == "ECHO") {
-      auto text = request.substr(5);
-      trim_front(text);
-      auto response = std::string("+OK ") + text;
-      WriteLine(fd, response);
+    // Check command
+    if (command == "HELO") {
+      // ===== HELO =====
+      // State has to be Idle
+      if (fsm.state() != State::Idle) {
+        const auto msg = "503 Bad sequence of commands";
+        WriteLine(fd, msg);
+        LOG_F(WARNING, "[%d] %s", fd, msg);
+        continue;
+      }
 
-      // DEBUG_PRINT
-      if (verbose_)
-        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
-      LOG_F(INFO, "cmd={ECHO}, Write to fd={%d}, str={%s}", fd,
-            response.c_str());
+      // Try match "HELO <domain>"
+      std::smatch results;
+      if (!std::regex_search(request, results, helo_regex_)) {
+        LOG_F(WARNING, "[%d] Match HELO failed", fd);
+        continue;
+      }
+
+      const auto &domain = results.str(1);
+      LOG_F(INFO, "[%d] Valid HELO, domain={%s}", fd, domain.c_str());
+
+      fsm.execute(Trigger::HELO);
+
+      const auto msg = "State transition: Idle -- HELO/ok --> Wait";
+      CHECK_F(fsm.state() == State::Wait);
+      LOG_F(INFO, "[%d] %s", fd, msg);
+
+    } else if (command == "MAIL") {
+      // ===== MAIL =====
+
+      // State has to be Wait
+      if (fsm.state() != State::Wait) {
+        const auto msg = "503 Bad sequence of commands";
+        WriteLine(fd, msg);
+        LOG_F(WARNING, "[%d] %s", fd, msg);
+        continue;
+      }
+
+      // Try match "MAIL FROM:<some.guy@somewhere>"
+      std::smatch results;
+      if (!std::regex_search(request, results, mail_from_regex_)) {
+        LOG_F(WARNING, "[%d] Match MAIL FROM failed", fd);
+        continue;
+      }
+
+      const auto &mail_addr = results.str(1);
+      LOG_F(INFO, "[%d] Valid MAIL FROM, mail_addr={%s}", fd,
+            mail_addr.c_str());
+
+      mail.set_sender(mail_addr);
+      fsm.execute(Trigger::MAIL);
+
+      const auto msg = "State transition: Wait -- MAIL/ok --> Mail";
+      CHECK_F(fsm.state() == State::Mail);
+      LOG_F(INFO, "[%d] %s", fd, msg);
+
+    } else if (command == "RCPT") {
+      // ===== RCPT =====
+
+      // State has to be Mail or Rcpt
+      if (!(fsm.state() == State::Mail || fsm.state() == State::Rcpt)) {
+        const auto msg = "503 Bad sequence of commands";
+        WriteLine(fd, msg);
+        LOG_F(WARNING, "[%d] %s", fd, msg);
+        continue;
+      }
+
+      // Try match "RCPT TO:<some.guy@somewhere>"
+      std::smatch results;
+      if (!std::regex_search(request, results, rcpt_to_regex_)) {
+        LOG_F(WARNING, "[%d] Match RCPT TO failed", fd);
+        continue;
+      }
+
+      const auto &mail_addr = results.str(1);
+      LOG_F(INFO, "[%d] Valid RCPT TO, mail_addr={%s}", fd, mail_addr.c_str());
+
+      // Check if user exists
+      if (!UserExists(mail_addr)) {
+        const auto msg = "550 No such user";
+        WriteLine(fd, msg);
+        LOG_F(WARNING, "[%d] %s, mail_addr={%s}", fd, msg, mail_addr.c_str());
+        continue;
+      }
+
+      if (!mail.RecipientExists(mail_addr)) {
+        mail.AddRecipient(mail_addr);
+        LOG_F(INFO, "[%d] Recipient added, mail_addr={%s}", fd,
+              mail_addr.c_str());
+      } else {
+        LOG_F(WARNING, "[%d] Recipient already exists, mail_addr={%s}", fd,
+              mail_addr.c_str());
+      }
+      fsm.execute(Trigger::RCPT);
+
+      const auto msg = "State transition: Mail/Rcpt -- RCPT/ok --> Rcpt";
+      CHECK_F(fsm.state() == State::Rcpt);
+      LOG_F(INFO, "[%d] %s", fd, msg);
+
+    } else if (command == "DATA") {
+      fsm.execute(Trigger::DATA);
+    } else if (command == "RSET") {
+      fsm.execute(Trigger::RSET);
+    } else if (command == "NOOP") {
+      fsm.execute(Trigger::NOOP);
     } else if (command == "QUIT") {
-      auto response = std::string("+OK Goodbye!");
-      WriteLine(fd, response);
-
-      // DEBUG_PRINT
-      if (verbose_)
-        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
-      LOG_F(INFO, "cmd={QUIT}, Write to fd={%d}, str={%s}", fd,
-            response.c_str());
-      if (verbose_)
-        fprintf(stderr, "[%d] Connection closed\n", fd);
-
-      // Close socket and mark it as closed
-      close(fd);
-      *sock_ptr = -1;
-      return;
+      fsm.execute(Trigger::QUIT);
+    } else if (command == ".") {
+      fsm.execute(Trigger::DOT);
     } else {
-      auto response = std::string("-ERR Unknown command");
-      WriteLine(fd, response);
-
-      // DEBUG_PRINT
-      if (verbose_)
-        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
-      LOG_F(INFO, "cmd={UNKNOWN}, Write to fd={%d}, str={%s}", fd,
-            response.c_str());
     }
   }
 }
 
 void SmtpServer::Stop() {}
+
+bool SmtpServer::UserExists(const std::string &mail_addr) const {
+  auto pred = [&mail_addr](const User &user) {
+    return user.addr() == mail_addr;
+  };
+  return std::find_if(users_.begin(), users_.end(), pred) != users_.end();
+}

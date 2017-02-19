@@ -7,7 +7,7 @@ TEST_DIR = test
 TEST = echo-test smtp-test pop3-test
 
 TESTS_DIR = tests
-TESTS = test_main test_thread test_signal test_filesystem
+TESTS = test_main test_thread test_signal test_filesystem test_fsm test_regex
 
 INC_DIR = include
 SRC_DIR = src
@@ -17,10 +17,10 @@ LIB_DIR = lib
 CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -Wall -g 
 LDFLAGS = -shared
 
-_DEPS = lpi.h server.h string_algorithms.h user.h smtpserver.h
+_DEPS = lpi.h server.h string_algorithms.h user.h smtpserver.h mail.h
 DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
 
-_OBJS = lpi.o server.o string_algorithms.o user.o 
+_OBJS = lpi.o server.o string_algorithms.o user.o mail.o
 OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
 
 

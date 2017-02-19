@@ -4,8 +4,10 @@
 #include "server.h"
 #include "user.h"
 
+#include <regex>
+
 class SmtpServer : public Server {
- public:
+public:
   SmtpServer(int port_no, int backlog, bool verbose,
              const std::string &mailbox);
 
@@ -13,10 +15,14 @@ class SmtpServer : public Server {
   virtual void Stop() override;
 
   void Mailbox();
+  bool UserExists(const std::string &mail_addr) const;
 
- private:
+private:
   std::string mailbox_;
   std::vector<User> users_;
+  std::regex mail_from_regex_;
+  std::regex rcpt_to_regex_;
+  std::regex helo_regex_;
 };
 
-#endif  // SMTP_SERVER_H
+#endif // SMTP_SERVER_H
