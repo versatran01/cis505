@@ -2,6 +2,7 @@
 #define SERVER_H
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -37,6 +38,7 @@ protected:
   void ListenSocket();
 
   int listen_fd_;
+  std::mutex open_sockects_mutex_;
   std::vector<SocketPtr> open_sockets_;
 
 private:

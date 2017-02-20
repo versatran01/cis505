@@ -24,6 +24,7 @@ void SmtpReply(int fd, int code) {
     WriteLine(fd, reply);
     LOG_F(WARNING, "[%d] %s", fd, reply);
   } else {
+    LOG_F(WARNING, "[%d] Unknown code, code={%d}", fd, code);
   }
 }
 
@@ -31,7 +32,7 @@ SmtpServer::SmtpServer(int port_no, int backlog, bool verbose,
                        const std::string &mailbox)
     : Server(port_no, backlog, verbose), mailbox_(mailbox) {
   if (mailbox_.empty()) {
-    LOG_F(ERROR, "No mailbox, dir={%s}", mailbox_.c_str());
+    LOG_F(ERROR, "No mailbox");
   } else {
     LOG_F(INFO, "Mailbox, dir={%s}", mailbox_.c_str());
   }
@@ -51,11 +52,11 @@ SmtpServer::SmtpServer(int port_no, int backlog, bool verbose,
 }
 
 void SmtpServer::Mailbox() {
-  // Current path is
+  // Current working dir
   fs::path cwd(fs::current_path());
   LOG_F(INFO, "Current path, dir={%s}", cwd.c_str());
 
-  // Mailbox dir is
+  // Mailbox dir
   fs::path mailbox_dir = cwd / mailbox_;
 
   // Check if it is a directory
@@ -299,7 +300,9 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       CHECK_F(mail.Empty());
       LOG_F(INFO, "[%d] %s", fd, msg);
     } else if (command == "NOOP") {
+      // ===== NOOP =====
       LOG_F(INFO, "[%d] NOOP", fd);
+      WriteLine(fd, "250 OK");
     } else if (command == "DATA") {
       // ===== DATA =====
       if (fsm.state() != State::Rcpt) {

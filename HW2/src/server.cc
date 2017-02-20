@@ -236,6 +236,7 @@ void Server::Stop() {
   RemoveClosedSockets(open_sockets_);
   LOG_F(INFO, "Remove closed sockets, num_fd={%zu}", open_sockets_.size());
 
+  std::lock_guard<std::mutex> guard(open_sockects_mutex_);
   const std::string response("-ERR Server shutting down");
   for (const auto fd_ptr : open_sockets_) {
     if (*fd_ptr < 0)
