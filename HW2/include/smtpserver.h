@@ -15,7 +15,7 @@ public:
   virtual void Work(SocketPtr sock_ptr) override;
 
   void Mailbox();
-  bool UserExists(const std::string &mail_addr) const;
+  bool UserExistsByAddr(const std::string &mail_addr) const;
 
 private:
   std::string mailbox_; // name of mailbox

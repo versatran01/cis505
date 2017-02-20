@@ -59,6 +59,7 @@ void EchoServer::Work(SocketPtr sock_ptr) {
 }
 
 void SigintHandler(int sig) {
+  CHECK_F(echo_server_ptr != nullptr, "Forget to set pointer");
   echo_server_ptr->Stop();
   exit(EXIT_SUCCESS);
 }

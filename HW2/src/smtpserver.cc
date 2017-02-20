@@ -12,13 +12,18 @@ namespace fs = std::experimental::filesystem;
 
 enum class State { Init, Idle, Wait, Mail, Rcpt, Data, Send };
 enum class Trigger { HELO, MAIL, RCPT, RSET, QUIT, DATA, CONN_, EOML_, SENT_ };
-using SmtpFsm = FSM::Fsm<State, State::Init, Trigger>;
+using SmtpFsm = FSM::Fsm<State, State::Init, Trigger>; // State machine
 
-void SmtpReply(int fd, int code, const std::string &msg = "") {
+void SmtpReply(int fd, int code) {
   if (code == 503) {
     const auto reply = "503 Bad sequence of commands";
     WriteLine(fd, reply);
     LOG_F(WARNING, "[%d] %s", fd, reply);
+  } else if (code == 501) {
+    const auto reply = "501 Syntax error in parameters or arguments";
+    WriteLine(fd, reply);
+    LOG_F(WARNING, "[%d] %s", fd, reply);
+  } else {
   }
 }
 
@@ -55,7 +60,7 @@ void SmtpServer::Mailbox() {
 
   // Check if it is a directory
   if (fs::is_directory(mailbox_dir)) {
-    LOG_F(INFO, "Mailbox dir, path={%s}", mailbox_dir.c_str());
+    LOG_F(INFO, "Mailbox, path={%s}", mailbox_dir.c_str());
     // Read all users
     for (const fs::directory_entry &file :
          fs::directory_iterator(mailbox_dir)) {
@@ -63,24 +68,23 @@ void SmtpServer::Mailbox() {
         const auto &name = file.path().stem().string();
         users_.emplace_back(name, file.path().string());
         LOG_F(INFO, "Add user, name={%s}", name.c_str());
-        LOG_F(INFO, "User mbox, path={%s}", file.path().c_str());
       }
     }
   } else {
-    const auto msg = "Mailbox dir invalid, path={%s}";
-    LOG_F(ERROR, msg, mailbox_dir.c_str());
+    LOG_F(ERROR, "Mailbox invalid, path={%s}", mailbox_dir.c_str());
   }
 
   if (users_.empty()) {
-    const auto msg = "No user found";
-    LOG_F(ERROR, msg);
+    LOG_F(ERROR, "No user found, mbox={%s}", mailbox_.c_str());
   }
-  LOG_F(INFO, "Total user, n={%zu}", users_.size());
+  LOG_F(INFO, "Total user, mbox={%s}, n={%zu}", mailbox_.c_str(),
+        users_.size());
 }
 
 void SmtpServer::Work(SocketPtr sock_ptr) {
-  LOG_F(INFO, "Inside SmtpServer::Work");
-  const auto &fd = *sock_ptr;
+  const auto fd = *sock_ptr;
+  LOG_F(INFO, "[%d] Inside SmtpServer::Work", fd);
+
   Mail mail;
 
   // Actions
@@ -89,7 +93,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
   auto ok_helo = [&fd]() { WriteLine(fd, "250 localhost"); };
   auto reset = [&]() { mail.Clear(); };
   auto ok_reset = [&]() {
-    mail.Clear();
+    reset();
     ok();
   };
   auto ok_data = [&fd]() { WriteLine(fd, "354 Start mail input"); };
@@ -193,6 +197,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       std::smatch results;
       if (!std::regex_search(request, results, helo_regex_)) {
         LOG_F(WARNING, "[%d] Match HELO failed", fd);
+        SmtpReply(fd, 501);
         continue;
       }
 
@@ -252,7 +257,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       LOG_F(INFO, "[%d] Valid RCPT TO, mail_addr={%s}", fd, mail_addr.c_str());
 
       // Check if user exists
-      if (!UserExists(mail_addr)) {
+      if (!UserExistsByAddr(mail_addr)) {
         const auto msg = "550 No such user";
         WriteLine(fd, msg);
         LOG_F(WARNING, "[%d] %s, mail_addr={%s}", fd, msg, mail_addr.c_str());
@@ -270,7 +275,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
 
       fsm.execute(Trigger::RCPT);
 
-      LOG_F(INFO, "[%d] Number of recipients, n={%zu}",
+      LOG_F(INFO, "[%d] Number of recipients, n={%zu}", fd,
             mail.recipients().size());
 
       const auto msg = "State transition: Mail/Rcpt -- RCPT/ok --> Rcpt";
@@ -330,7 +335,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
   }
 }
 
-bool SmtpServer::UserExists(const std::string &mail_addr) const {
+bool SmtpServer::UserExistsByAddr(const std::string &mail_addr) const {
   auto pred = [&mail_addr](const User &user) {
     return user.addr() == mail_addr;
   };
