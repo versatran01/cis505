@@ -215,6 +215,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       std::smatch results;
       if (!std::regex_search(request, results, mail_from_regex_)) {
         LOG_F(WARNING, "[%d] Match MAIL FROM failed", fd);
+        ReplyCode(fd, 501);
         continue;
       }
 
@@ -242,6 +243,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       std::smatch results;
       if (!std::regex_search(request, results, rcpt_to_regex_)) {
         LOG_F(WARNING, "[%d] Match RCPT TO failed", fd);
+        ReplyCode(fd, 501);
         continue;
       }
 
@@ -250,8 +252,9 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
 
       // Check if user exists
       if (!UserExistsByAddr(mail_addr)) {
-        const auto msg = "550 No such user";
-        WriteLine(fd, msg);
+        LOG_F(INFO, "[%d] User doesn't exist, mail_addr={%s}", fd,
+              mail_addr.c_str());
+        WriteLine(fd, "550 No such user");
         continue;
       }
 
@@ -260,7 +263,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
         LOG_F(INFO, "[%d] Recipient added, mail_addr={%s}", fd,
               mail_addr.c_str());
       } else {
-        LOG_F(WARNING, "[%d] Recipient already exists, mail_addr={%s}", fd,
+        LOG_F(WARNING, "[%d] Recipient already added, mail_addr={%s}", fd,
               mail_addr.c_str());
       }
 
