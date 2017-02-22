@@ -24,9 +24,6 @@ void EchoServer::Work(SocketPtr sock_ptr) {
     std::string request;
     ReadLine(fd, request);
     trim(request);
-    LOG_F(INFO, "[%d] Read, str={%s}", fd, request.c_str());
-    if (verbose_)
-      fprintf(stderr, "[%d] C: %s\n", fd, request.c_str());
 
     // Extract command
     const auto command = ExtractCommand(request);
@@ -38,16 +35,10 @@ void EchoServer::Work(SocketPtr sock_ptr) {
       trim_front(text);
       auto response = std::string("+OK ") + text;
       WriteLine(fd, response);
-      LOG_F(INFO, "[%d] Write, str={%s}", fd, response.c_str());
-      if (verbose_)
-        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
 
     } else if (command == "QUIT") {
       const auto response = "+OK Goodbye!";
       WriteLine(fd, response);
-      LOG_F(INFO, "[%d] Write, str={%s}", fd, response);
-      if (verbose_)
-        fprintf(stderr, "[%d] S: %s\n", fd, response);
 
       // Close socket and mark it as closed
       close(fd);
@@ -58,13 +49,9 @@ void EchoServer::Work(SocketPtr sock_ptr) {
       std::lock_guard<std::mutex> guard(open_sockects_mutex_);
       *sock_ptr = -1;
       return;
-
     } else {
       const auto response = "-ERR Unknown command";
       WriteLine(fd, response);
-      LOG_F(INFO, "[%d] Write, str={%s}", fd, response);
-      if (verbose_)
-        fprintf(stderr, "[%d] S: %s\n", fd, response);
     }
   }
 }

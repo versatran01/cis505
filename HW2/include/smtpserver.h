@@ -16,6 +16,7 @@ public:
 
   void Mailbox();
   bool UserExistsByAddr(const std::string &mail_addr) const;
+  void ReplyCode(int fd, int code) const;
 
 private:
   std::string mailbox_; // name of mailbox

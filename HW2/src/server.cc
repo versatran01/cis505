@@ -11,6 +11,7 @@
 #include <sys/types.h>
 
 #include <algorithm>
+#include <stdarg.h>
 #include <thread>
 
 std::string ExtractCommand(const std::string &request, size_t len) {
@@ -30,7 +31,7 @@ void RemoveClosedSockets(std::vector<SocketPtr> &socket_ptrs) {
       socket_ptrs.end());
 }
 
-bool WriteLine(int fd, const std::string &line) {
+bool Server::WriteLine(int fd, const std::string &line) const {
   const auto line_crlf = line + "\r\n";
 
   const int len = line_crlf.size();
@@ -51,10 +52,14 @@ bool WriteLine(int fd, const std::string &line) {
     num_sent += n;
   }
 
+  LOG_F(INFO, "[%d] Write, str={%s}", fd, line.c_str());
+  if (verbose_)
+    fprintf(stderr, "[%d] S: %s\n", fd, line.c_str());
+
   return true;
 }
 
-bool ReadLine(int fd, std::string &line) {
+bool Server::ReadLine(int fd, std::string &line) const {
   line.clear();
   const char lf = '\n';
   const char cr = '\r';
@@ -98,6 +103,10 @@ bool ReadLine(int fd, std::string &line) {
     // non-EOL, append
     line += ch;
   }
+
+  LOG_F(INFO, "[%d] Read, str={%s}", fd, line.c_str());
+  if (verbose_)
+    fprintf(stderr, "[%d] C: %s\n", fd, line.c_str());
 
   return true;
 }
@@ -209,7 +218,6 @@ void Server::Run() {
     inet_ntop(AF_INET, &(client_addr.sin_addr), client_ip, sizeof(client_ip));
     LOG_F(INFO, "New connection, fd={%d}, ip={%s}, port_n={%d}", connect_fd,
           client_ip, static_cast<int>(client_addr.sin_port));
-
     if (verbose_)
       fprintf(stderr, "[%d] New connection\n", connect_fd);
 
@@ -221,6 +229,7 @@ void Server::Run() {
     worker.detach();
 
     // Clean closed sockets
+    std::lock_guard<std::mutex> guard(open_sockects_mutex_);
     RemoveClosedSockets(open_sockets_);
     LOG_F(INFO, "Remaining open connections, num={%zu}", open_sockets_.size());
   }
@@ -231,12 +240,12 @@ void Server::Stop() {
   close(listen_fd_);
   LOG_F(INFO, "Close listen socket, fd={%d}, sig={SIGINT}", listen_fd_);
 
+  std::lock_guard<std::mutex> guard(open_sockects_mutex_);
   LOG_F(INFO, "Open sockets, num_fd={%zu}", open_sockets_.size());
   RemoveClosedSockets(open_sockets_);
   LOG_F(INFO, "Remove closed sockets, num_fd={%zu}", open_sockets_.size());
 
-  std::lock_guard<std::mutex> guard(open_sockects_mutex_);
-  const std::string response("-ERR Server shutting down");
+  const auto response = "-ERR Server shutting down";
   for (const auto fd_ptr : open_sockets_) {
     if (*fd_ptr < 0)
       continue;
@@ -244,5 +253,15 @@ void Server::Stop() {
     LOG_F(INFO, "[%d] Write, str={%s}", *fd_ptr, response);
     close(*fd_ptr);
     LOG_F(INFO, "Close client socket, fd={%d}", *fd_ptr);
+  }
+}
+
+void Server::Log(const char *format, ...) {
+  if (verbose_) {
+    va_list args;
+    va_start(args, format);
+    fprintf(stderr, format, 5);
+    fprintf(stderr, "\n");
+    va_end(args);
   }
 }

@@ -14,15 +14,13 @@ enum class State { Init, Idle, Wait, Mail, Rcpt, Data, Send };
 enum class Trigger { HELO, MAIL, RCPT, RSET, QUIT, DATA, CONN_, EOML_, SENT_ };
 using SmtpFsm = FSM::Fsm<State, State::Init, Trigger>; // State machine
 
-void SmtpReply(int fd, int code) {
+void SmtpServer::ReplyCode(int fd, int code) const {
   if (code == 503) {
     const auto reply = "503 Bad sequence of commands";
     WriteLine(fd, reply);
-    LOG_F(WARNING, "[%d] %s", fd, reply);
   } else if (code == 501) {
     const auto reply = "501 Syntax error in parameters or arguments";
     WriteLine(fd, reply);
-    LOG_F(WARNING, "[%d] %s", fd, reply);
   } else {
     LOG_F(WARNING, "[%d] Unknown code, code={%d}", fd, code);
   }
@@ -87,17 +85,16 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
   LOG_F(INFO, "[%d] Inside SmtpServer::Work", fd);
 
   Mail mail;
-
   // Actions
-  auto greet = [&fd]() { WriteLine(fd, "220 localhost service ready"); };
-  auto ok = [&fd]() { WriteLine(fd, "250 OK"); };
-  auto ok_helo = [&fd]() { WriteLine(fd, "250 localhost"); };
+  auto greet = [&]() { WriteLine(fd, "220 localhost service ready"); };
+  auto ok = [&]() { WriteLine(fd, "250 OK"); };
+  auto ok_helo = [&]() { WriteLine(fd, "250 localhost"); };
   auto reset = [&]() { mail.Clear(); };
   auto ok_reset = [&]() {
     reset();
     ok();
   };
-  auto ok_data = [&fd]() { WriteLine(fd, "354 Start mail input"); };
+  auto ok_data = [&]() { WriteLine(fd, "354 Start mail input"); };
 
   SmtpFsm fsm;
   // from, to, trigger, guard, action
@@ -123,11 +120,6 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
     std::string request;
     ReadLine(fd, request);
 
-    // DEBUG_PRINT
-    if (verbose_)
-      fprintf(stderr, "[%d] C: %s\n", fd, request.c_str());
-    LOG_F(INFO, "[%d] Read, str={%s}", fd, request.c_str());
-
     // Text state
     if (fsm.state() == State::Data) {
       if (request == ".") {
@@ -143,7 +135,6 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       }
 
       mail.AddLine(request);
-      LOG_F(INFO, "[%d] Number of lines, n={%zu}", fd, mail.data().size());
       continue;
     }
 
@@ -190,7 +181,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       // ===== HELO =====
       // State has to be Idle
       if (fsm.state() != State::Idle) {
-        SmtpReply(fd, 503);
+        ReplyCode(fd, 503);
         continue;
       }
 
@@ -198,7 +189,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       std::smatch results;
       if (!std::regex_search(request, results, helo_regex_)) {
         LOG_F(WARNING, "[%d] Match HELO failed", fd);
-        SmtpReply(fd, 501);
+        ReplyCode(fd, 501);
         continue;
       }
 
@@ -216,7 +207,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
 
       // State has to be Wait
       if (fsm.state() != State::Wait) {
-        SmtpReply(fd, 503);
+        ReplyCode(fd, 503);
         continue;
       }
 
@@ -243,7 +234,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
 
       // State has to be Mail or Rcpt
       if (!(fsm.state() == State::Mail || fsm.state() == State::Rcpt)) {
-        SmtpReply(fd, 503);
+        ReplyCode(fd, 503);
         continue;
       }
 
@@ -261,7 +252,6 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       if (!UserExistsByAddr(mail_addr)) {
         const auto msg = "550 No such user";
         WriteLine(fd, msg);
-        LOG_F(WARNING, "[%d] %s, mail_addr={%s}", fd, msg, mail_addr.c_str());
         continue;
       }
 
@@ -289,7 +279,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
     } else if (command == "RSET") {
       // ===== RSET =====
       if (!(fsm.state() == State::Mail || fsm.state() == State::Rcpt)) {
-        SmtpReply(fd, 503);
+        ReplyCode(fd, 503);
         continue;
       }
 
@@ -306,7 +296,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
     } else if (command == "DATA") {
       // ===== DATA =====
       if (fsm.state() != State::Rcpt) {
-        SmtpReply(fd, 503);
+        ReplyCode(fd, 503);
       }
 
       fsm.execute(Trigger::DATA);
@@ -314,26 +304,21 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       const auto msg = "State transition: Rcpt -- Data/ok_data --> Data";
       CHECK_F(fsm.state() == State::Data);
       LOG_F(INFO, "[%d] %s", fd, msg);
-
     } else if (command == "QUIT") {
-      const auto msg = "221 localhost Serice closing";
-      WriteLine(fd, msg);
-
-      // DEBUG_PRINT
-      //      if (verbose_)
-      //        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
-      LOG_F(INFO, "[%d] Write to fd, str={%s}", fd, msg);
-      //      if (verbose_)
-      //        fprintf(stderr, "[%d] Connection closed\n", fd);
+      WriteLine(fd, "221 localhost Service closing");
 
       // Close socket and mark it as closed
       close(fd);
+      LOG_F(INFO, "[%d] Connection closed", fd);
+      if (verbose_)
+        fprintf(stderr, "[%d] Connection closed\n", fd);
+
+      // Set socket fd to -1
+      std::lock_guard<std::mutex> guard(open_sockects_mutex_);
       *sock_ptr = -1;
       return;
     } else {
-      const auto msg = "500 Syntax error, command unrecognized";
-      LOG_F(WARNING, "[%d] %s cmd={%s}", fd, msg, command);
-      WriteLine(fd, msg);
+      WriteLine(fd, "500 Syntax error, command unrecognized");
     }
   }
 }

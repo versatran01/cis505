@@ -16,18 +16,19 @@ void SigintHandler(int sig) {
 static char args_doc[] = "MAILBOX";
 
 struct argp_args {
-  int port_no = 2500;   // port number, default is 2500
-  int print_name = 0;   // print name and seas login to stderr
-  bool verbose = false; // verbose mode, log to stderr, otherwise log to file
-  int backlog = 10;     // backlog option to listen
-  const char *mailbox;  // directory of mailbox
+  int port_no = 2500;      // port number, default is 2500
+  bool print_name = false; // print name and seas login to stderr
+  bool verbose = false;    // verbose mode,
+  bool logstderr = false;  // log to stderr, otherwise log to file
+  int backlog = 10;        // backlog option to listen
+  const char *mailbox;     // directory of mailbox
 };
 
 struct argp_option options[] = {
     {0, 'p', "PORT_NO", 0, "Port number, default is 10000."},
     {0, 'a', 0, 0, "Print name and seas login to stderr."},
     {0, 'v', 0, 0, "Verbose mode."},
-    // Extra options
+    {0, 'l', 0, 0, "Log to stderr."},
     {0, 'b', "BACKLOG", 0, "Number of connections on incoming queue."},
     {0}};
 
@@ -38,13 +39,17 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     args->port_no = std::atoi(arg);
     break;
   case 'a':
-    args->print_name = 1;
+    args->print_name = true;
     break;
   case 'v':
     args->verbose = true;
     break;
   case 'b':
     args->backlog = std::atoi(arg);
+    break;
+  case 'l':
+    args->logstderr = true;
+    break;
   case ARGP_KEY_ARG:
     // Too many arguments
     if (state->arg_num >= 1)
@@ -88,7 +93,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Setup log
-  if (!args.verbose) {
+  if (!args.logstderr) {
     loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
     loguru::add_file("smtp.log", loguru::Truncate, loguru::Verbosity_MAX);
   }

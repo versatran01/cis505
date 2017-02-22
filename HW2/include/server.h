@@ -6,8 +6,6 @@
 #include <string>
 #include <vector>
 
-bool WriteLine(int fd, const std::string &line);
-bool ReadLine(int fd, std::string &line);
 std::string ExtractCommand(const std::string &request, size_t len = 4);
 
 typedef void (*sa_handler_ptr)(int);
@@ -27,6 +25,8 @@ public:
 
   void Setup();
   void Run();
+  bool WriteLine(int fd, const std::string &line) const;
+  bool ReadLine(int fd, std::string &line) const;
 
   virtual void Work(SocketPtr sock_ptr) = 0;
   virtual void Stop();
@@ -36,6 +36,7 @@ protected:
   void ReuseAddrPort();
   void BindAddress();
   void ListenSocket();
+  void Log(const char *format, ...);
 
   int listen_fd_;
   std::mutex open_sockects_mutex_;
