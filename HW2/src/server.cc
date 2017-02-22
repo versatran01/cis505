@@ -210,9 +210,8 @@ void Server::Run() {
     LOG_F(INFO, "New connection, fd={%d}, ip={%s}, port_n={%d}", connect_fd,
           client_ip, static_cast<int>(client_addr.sin_port));
 
-    // DEBUG_PRINT
-    //    if (verbose_)
-    //      fprintf(stderr, "[%d] New connection\n", connect_fd);
+    if (verbose_)
+      fprintf(stderr, "[%d] New connection\n", connect_fd);
 
     auto connect_fd_ptr = std::make_shared<int>(connect_fd);
     open_sockets_.push_back(connect_fd_ptr);

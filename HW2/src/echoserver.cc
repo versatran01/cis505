@@ -25,6 +25,8 @@ void EchoServer::Work(SocketPtr sock_ptr) {
     ReadLine(fd, request);
     trim(request);
     LOG_F(INFO, "[%d] Read, str={%s}", fd, request.c_str());
+    if (verbose_)
+      fprintf(stderr, "[%d] C: %s\n", fd, request.c_str());
 
     // Extract command
     const auto command = ExtractCommand(request);
@@ -37,15 +39,21 @@ void EchoServer::Work(SocketPtr sock_ptr) {
       auto response = std::string("+OK ") + text;
       WriteLine(fd, response);
       LOG_F(INFO, "[%d] Write, str={%s}", fd, response.c_str());
+      if (verbose_)
+        fprintf(stderr, "[%d] S: %s\n", fd, response.c_str());
 
     } else if (command == "QUIT") {
       const auto response = "+OK Goodbye!";
       WriteLine(fd, response);
       LOG_F(INFO, "[%d] Write, str={%s}", fd, response);
+      if (verbose_)
+        fprintf(stderr, "[%d] S: %s\n", fd, response);
 
       // Close socket and mark it as closed
       close(fd);
       LOG_F(INFO, "[%d] Connection closed", fd);
+      if (verbose_)
+        fprintf(stderr, "[%d] Connection closed\n", fd);
 
       std::lock_guard<std::mutex> guard(open_sockects_mutex_);
       *sock_ptr = -1;
@@ -55,6 +63,8 @@ void EchoServer::Work(SocketPtr sock_ptr) {
       const auto response = "-ERR Unknown command";
       WriteLine(fd, response);
       LOG_F(INFO, "[%d] Write, str={%s}", fd, response);
+      if (verbose_)
+        fprintf(stderr, "[%d] S: %s\n", fd, response);
     }
   }
 }
@@ -66,17 +76,18 @@ void SigintHandler(int sig) {
 }
 
 struct argp_args {
-  int port_no = 10000;  // port number, default is 10000
-  int print_name = 0;   // print name and seas login to stderr
-  bool verbose = false; // verbose mode, log to stderr, otherwise log to file
-  int backlog = 10;     // backlog option to listen
+  int port_no = 10000;     // port number, default is 10000
+  bool print_name = false; // print name and seas login to stderr
+  bool verbose = false;    // verbose mode
+  bool logstderr = false;  // log to stderr, otherwise log to file
+  int backlog = 10;        // backlog option to listen
 };
 
 struct argp_option options[] = {
     {0, 'p', "PORT_NO", 0, "Port number, default is 10000."},
     {0, 'a', 0, 0, "Print name and seas login to stderr."},
     {0, 'v', 0, 0, "Verbose mode."},
-    // Extra options
+    {0, 'l', 0, 0, "Log to stderr."},
     {0, 'b', "BACKLOG", 0, "Number of connections on incoming queue."},
     {0}};
 
@@ -87,13 +98,17 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     args->port_no = std::atoi(arg);
     break;
   case 'a':
-    args->print_name = 1;
+    args->print_name = true;
     break;
   case 'v':
     args->verbose = true;
     break;
+  case 'l':
+    args->logstderr = true;
+    break;
   case 'b':
     args->backlog = std::atoi(arg);
+    break;
   default:
     return ARGP_ERR_UNKNOWN;
   }
@@ -126,7 +141,7 @@ int main(int argc, char *argv[]) {
   }
 
   // Setup log
-  if (!args.verbose) {
+  if (!args.logstderr) {
     loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
     loguru::add_file("echoserver.log", loguru::Truncate, loguru::Verbosity_MAX);
   }
