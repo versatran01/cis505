@@ -1,6 +1,6 @@
 TARGETS = echoserver pop3 smtp
 CC = g++
-LIBS = -ldl -lstdc++fs
+LIBS = -ldl -lstdc++fs -lcrypto
 LIB = libhw2.so
 
 TEST_DIR = test
@@ -33,14 +33,14 @@ echoserver: $(OBJS) $(OBJ_DIR)/echoserver.o
 smtp: $(OBJS) $(OBJ_DIR)/smtp.o $(OBJ_DIR)/smtpserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
+pop3: $(OBJS) $(SRC_DIR)/pop3.cc $(OBJ_DIR)/pop3server.o
+	$(CC) $(CFLAGS) -I/opt/local/include/ $^ -L/opt/local/bin/openssl -o $@ $(LIBS) 
+
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS) _obj
 	$(CC) $(CFLAGS) $< -c -o $@
 
 _obj:
 	mkdir -p $(OBJ_DIR)
-
-pop3: $(SRC_DIR)/pop3.cc
-	g++ $^ -I/opt/local/include/ -L/opt/local/bin/openssl -lcrypto -lpthread -g -o $@
 
 pack:
 	rm -f submit-hw2.zip
