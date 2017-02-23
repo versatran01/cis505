@@ -60,16 +60,19 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
   SmtpFsm fsm;
   // from, to, trigger, guard, action
   fsm.add_transitions({
+      // On connection
       {State::Init, State::Idle, Trigger::CONN_, nullptr, greet},
+      // Flow
       {State::Idle, State::Wait, Trigger::HELO, nullptr, ok_helo},
       {State::Wait, State::Mail, Trigger::MAIL, nullptr, ok},
       {State::Mail, State::Rcpt, Trigger::RCPT, nullptr, ok},
       {State::Rcpt, State::Rcpt, Trigger::RCPT, nullptr, ok},
       {State::Rcpt, State::Data, Trigger::DATA, nullptr, ok_data},
-      {State::Data, State::Send, Trigger::EOML_, nullptr, ok},
-      {State::Send, State::Wait, Trigger::SENT_, nullptr, reset},
+      {State::Data, State::Wait, Trigger::EOML_, nullptr, ok_reset},
+      // Reset
       {State::Mail, State::Wait, Trigger::RSET, nullptr, ok_reset},
       {State::Rcpt, State::Wait, Trigger::RSET, nullptr, ok_reset},
+      {State::Wait, State::Wait, Trigger::RSET, nullptr, ok_reset},
   });
 
   // On connection
@@ -84,13 +87,14 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
     // Text state
     if (fsm.state() == State::Data) {
       if (request == ".") {
-        // End of mail
-        mail.Stamp(); // Time stamp mail
+        // ===== End of mail =====
+        mail.Stamp();       // Time stamp mail
+        SendMail(mail, fd); // Send mail
 
         fsm.execute(Trigger::EOML_);
 
-        const auto msg = "State transition: Data -- ./ok --> Send";
-        CHECK_F(fsm.state() == State::Send);
+        const auto msg = "State transition: Data -- ./ok --> Wait";
+        CHECK_F(fsm.state() == State::Wait);
         LOG_F(INFO, "[%d] %s", fd, msg);
         continue;
       }
@@ -99,19 +103,8 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       continue;
     }
 
-    // Send mail to mbox
-    if (fsm.state() == State::Send) {
-      SendMail(mail, fd);
-
-      fsm.execute(Trigger::SENT_);
-
-      const auto msg = "State transition: Send -- SENT_/ --> Wait";
-      CHECK_F(fsm.state() == State::Wait);
-      LOG_F(INFO, "[%d] %s", fd, msg);
-    }
-
     // Extract command, for now assume no preceeding white spaces
-    auto command = ExtractCommand(request);
+    const auto command = ExtractCommand(request);
     LOG_F(INFO, "[%d] cmd={%s}", fd, command.c_str());
 
     // Check command
@@ -189,7 +182,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       LOG_F(INFO, "[%d] Valid RCPT TO, mail_addr={%s}", fd, mail_addr.c_str());
 
       // Check if user exists
-      if (!UserExistsByAddr(mail_addr)) {
+      if (!UserExistsByMailAddr(mail_addr)) {
         LOG_F(INFO, "[%d] User doesn't exist, mail_addr={%s}", fd,
               mail_addr.c_str());
         WriteLine(fd, "550 No such user");
@@ -214,12 +207,10 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       CHECK_F(fsm.state() == State::Rcpt);
       LOG_F(INFO, "[%d] %s", fd, msg);
 
-    } else if (command == "DATA") {
-      // ===== DATA ====
-      fsm.execute(Trigger::DATA);
     } else if (command == "RSET") {
       // ===== RSET =====
-      if (!(fsm.state() == State::Mail || fsm.state() == State::Rcpt)) {
+      if (!(fsm.state() == State::Mail || fsm.state() == State::Rcpt ||
+            fsm.state() == State::Wait)) {
         ReplyCode(fd, 503);
         continue;
       }
@@ -238,6 +229,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       // ===== DATA =====
       if (fsm.state() != State::Rcpt) {
         ReplyCode(fd, 503);
+        continue;
       }
 
       fsm.execute(Trigger::DATA);
@@ -266,9 +258,10 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
 
 void SmtpServer::SendMail(const Mail &mail, int fd) const {
   for (const auto &recipient : mail.recipients()) {
-    auto user_iter = std::find_if(
-        users_.begin(), users_.end(),
-        [&recipient](const User &user) { return user.mail_addr() == recipient; });
+    auto user_iter = std::find_if(users_.begin(), users_.end(),
+                                  [&recipient](const User &user) {
+                                    return user.mail_addr() == recipient;
+                                  });
 
     // This should never happen, because we checked this in Rcpt state
     if (user_iter == users_.end()) {

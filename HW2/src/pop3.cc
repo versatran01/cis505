@@ -16,7 +16,7 @@ void SigintHandler(int sig) {
 static char args_doc[] = "MAILBOX";
 
 struct argp_args {
-  int port_no = 2500;      // port number, default is 2500
+  int port_no = 11000;     // port number, default is 11000
   bool print_name = false; // print name and seas login to stderr
   bool verbose = false;    // verbose mode,
   bool logstderr = false;  // log to stderr, otherwise log to file
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
 
   pop3_server.Setup();
   pop3_server.LoadMailbox();
-  //  pop3_server.Run();
+  pop3_server.Run();
 
   return EXIT_SUCCESS;
 }

@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <openssl/md5.h>
 
-enum class State { Init, Authorization, Transaction, Update };
+enum class State { Init, Auth, Trans, Update };
 enum class Trigger {
   CONN_,
 };
@@ -32,16 +32,29 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
   const auto fd = *sock_ptr;
   LOG_F(INFO, "[%d] Inside Pop3Server::Work", fd);
 
-  Mail mail;
   // Actions
   auto greet = [&]() { WriteLine(fd, "+OK POP3 server ready"); };
 
   Pop3Fsm fsm;
   // from, to, trigger, guard, action
   fsm.add_transitions({
-      {State::Init, State::Authorization, Trigger::CONN_, nullptr, greet},
+      {State::Init, State::Auth, Trigger::CONN_, nullptr, greet},
   });
 
+  fsm.execute(Trigger::CONN_);
+  CHECK_F(fsm.state() == State::Auth, "Init -- CONN/greet --> Auth");
+
   while (true) {
+    std::string request;
+    ReadLine(fd, request);
+
+    // Extract command, for now assume no preceeding white spaces
+    const auto command = ExtractCommand(request);
+    LOG_F(INFO, "[%d] cmd={%s}", fd, command.c_str());
+
+    if (fsm.state() == State::Auth) {
+    } else if (fsm.state() == State::Trans) {
+    } else if (fsm.state() == State::Update) {
+    }
   }
 }

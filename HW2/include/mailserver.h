@@ -13,7 +13,8 @@ public:
   const std::vector<User> &users() const { return users_; }
 
   void LoadMailbox();
-  bool UserExistsByAddr(const std::string &mail_addr) const;
+  bool UserExistsByMailAddr(const std::string &mail_addr) const;
+  bool UserExistsByUsername(const std::string &username) const;
 
 protected:
   std::string mailbox_;
