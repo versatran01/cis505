@@ -11,18 +11,20 @@ class User {
 public:
   using MutexPtr = std::shared_ptr<std::mutex>;
 
-  User(const std::string &name, const std::string &mbox);
+  User(const std::string &mailbox, const std::string &username);
 
-  const std::string &name() const { return name_; }
-  const std::string &mbox() const { return mbox_; }
-  const std::string &addr() const { return addr_; }
+  const std::string &mailbox() const { return mailbox_; }
+  const std::string &username() const { return username_; }
+  const std::string &password() const { return password_; }
+  const std::string &mail_addr() const { return mail_addr_; }
 
   void WriteMail(const Mail &mail) const;
 
 private:
-  std::string name_;
-  std::string mbox_;
-  std::string addr_;
+  std::string mailbox_;
+  std::string username_;
+  std::string password_;
+  std::string mail_addr_;
   MutexPtr mutex_;
 };
 

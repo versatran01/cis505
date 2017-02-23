@@ -1,7 +1,6 @@
 #ifndef SMTP_SERVER_H
 #define SMTP_SERVER_H
 
-#include "mail.h"
 #include "mailserver.h"
 
 #include <regex>
@@ -14,6 +13,7 @@ public:
   virtual void Work(SocketPtr sock_ptr) override;
 
   void ReplyCode(int fd, int code) const;
+  void SendMail(const Mail &mail, int fd) const;
 
 private:
   std::regex mail_from_regex_;

@@ -1,8 +1,10 @@
 #include "smtpserver.h"
+#include "lpi.h"
+#include "mail.h"
+#include "string_algorithms.h"
+
 #include "fsm.hpp"
 #include "loguru.hpp"
-#include "lpi.h"
-#include "string_algorithms.h"
 
 #include <algorithm>
 
@@ -99,30 +101,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
 
     // Send mail to mbox
     if (fsm.state() == State::Send) {
-      for (const auto &recipient : mail.recipients()) {
-        auto user_iter = std::find_if(users_.begin(), users_.end(),
-                                      [&recipient](const User &user) {
-                                        return user.addr() == recipient;
-                                      });
-        // This should never happen, because we checked this in Rcpt state
-        if (user_iter == users_.end()) {
-          LOG_F(ERROR, "[%d] Could not find recipient, mail_addr={%s}", fd,
-                recipient.c_str());
-          continue;
-        }
-
-        const User &user = *user_iter;
-        LOG_F(INFO, "[%d] Start sending to recipient, mail_addr={%s}", fd,
-              recipient.c_str());
-
-        user.WriteMail(mail);
-
-        LOG_F(INFO, "[%d] Finish sending to recipient, mail_addr={%s}", fd,
-              recipient.c_str());
-      }
-
-      LOG_F(INFO, "[%d] Finish sending mail to all recipients, n={zu}", fd,
-            mail.recipients().size());
+      SendMail(mail, fd);
 
       fsm.execute(Trigger::SENT_);
 
@@ -282,5 +261,24 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
     } else {
       WriteLine(fd, "500 Syntax error, command unrecognized");
     }
+  }
+}
+
+void SmtpServer::SendMail(const Mail &mail, int fd) const {
+  for (const auto &recipient : mail.recipients()) {
+    auto user_iter = std::find_if(
+        users_.begin(), users_.end(),
+        [&recipient](const User &user) { return user.mail_addr() == recipient; });
+
+    // This should never happen, because we checked this in Rcpt state
+    if (user_iter == users_.end()) {
+      LOG_F(ERROR, "[%d] Could not find recipient, mail_addr={%s}", fd,
+            recipient.c_str());
+      continue;
+    }
+
+    user_iter->WriteMail(mail);
+    LOG_F(INFO, "[%d] Finish sending to recipient, mail_addr={%s}", fd,
+          recipient.c_str());
   }
 }

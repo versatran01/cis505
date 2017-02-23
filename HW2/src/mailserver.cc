@@ -29,9 +29,10 @@ void MailServer::LoadMailbox() {
     // Read all users
     for (const fs::directory_entry &file :
          fs::directory_iterator(mailbox_dir)) {
-      if (file.path().extension().string() == ".mbox") {
-        const auto &name = file.path().stem().string();
-        users_.emplace_back(name, file.path().string());
+      const fs::path &mailbox = file.path();
+      if (mailbox.extension().string() == ".mbox") {
+        const auto &name = mailbox.stem().string();
+        users_.emplace_back(mailbox.string(), name);
         LOG_F(INFO, "Add user, name={%s}", name.c_str());
       }
     }
@@ -48,7 +49,7 @@ void MailServer::LoadMailbox() {
 
 bool MailServer::UserExistsByAddr(const std::string &mail_addr) const {
   auto pred = [&mail_addr](const User &user) {
-    return user.addr() == mail_addr;
+    return user.mail_addr() == mail_addr;
   };
   return std::find_if(users_.begin(), users_.end(), pred) != users_.end();
 }

@@ -3,6 +3,8 @@
 
 #include "mailserver.h"
 
+#include <regex>
+
 class Pop3Server : public MailServer {
 public:
   Pop3Server(int port_no, int backlog, bool verbose,
