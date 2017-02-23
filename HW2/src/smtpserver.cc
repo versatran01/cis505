@@ -1,14 +1,10 @@
 #include "smtpserver.h"
 #include "fsm.hpp"
+#include "loguru.hpp"
 #include "lpi.h"
 #include "string_algorithms.h"
 
-#include "loguru.hpp"
-
 #include <algorithm>
-#include <experimental/filesystem>
-
-namespace fs = std::experimental::filesystem;
 
 enum class State { Init, Idle, Wait, Mail, Rcpt, Data, Send };
 enum class Trigger { HELO, MAIL, RCPT, RSET, QUIT, DATA, CONN_, EOML_, SENT_ };

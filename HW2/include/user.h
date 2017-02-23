@@ -10,6 +10,7 @@
 class User {
 public:
   using MutexPtr = std::shared_ptr<std::mutex>;
+
   User(const std::string &name, const std::string &mbox);
 
   const std::string &name() const { return name_; }
