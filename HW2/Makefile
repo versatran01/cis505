@@ -14,27 +14,30 @@ SRC_DIR = src
 OBJ_DIR = obj
 LIB_DIR = lib
 
-CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -Wall -g 
+CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -I/opt/local/include/ -L/opt/local/bin/openssl -Wall -g   
 LDFLAGS = -shared
 
-_DEPS = lpi.h server.h string_algorithms.h user.h smtpserver.h mail.h
+_DEPS = lpi.h server.h string_algorithms.h user.h smtpserver.h mail.h mailserver.h pop3server.h
 DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
 
-_OBJS = lpi.o server.o string_algorithms.o user.o mail.o
-OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
+_OBJS_MS1 = lpi.o server.o string_algorithms.o 
+OBJS_MS1 = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS_MS1))
+
+_OBJS_MS23 = user.o mail.o mailserver.o 
+OBJS_MS23 = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS_MS23))
 
 
 .PHONY: all
 all: $(TARGETS)
 
-echoserver: $(OBJS) $(OBJ_DIR)/echoserver.o
+echoserver: $(OBJS_MS1) $(OBJ_DIR)/echoserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
-smtp: $(OBJS) $(OBJ_DIR)/smtp.o $(OBJ_DIR)/smtpserver.o
+smtp: $(OBJS_MS1) $(OBJS_MS23) $(OBJ_DIR)/smtp.o $(OBJ_DIR)/smtpserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
-pop3: $(OBJS) $(SRC_DIR)/pop3.cc $(OBJ_DIR)/pop3server.o
-	$(CC) $(CFLAGS) -I/opt/local/include/ $^ -L/opt/local/bin/openssl -o $@ $(LIBS) 
+pop3: $(OBJS_MS1) $(OBJS_MS23) $(OBJ_DIR)/pop3.o $(OBJ_DIR)/pop3server.o
+	$(CC) $(CFLAGS) $^ -o $@ $(LIBS)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS) _obj
 	$(CC) $(CFLAGS) $< -c -o $@

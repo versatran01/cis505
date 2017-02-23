@@ -106,7 +106,7 @@ int main(int argc, char *argv[]) {
   smtp_server_ptr = &smtp_server;
 
   smtp_server.Setup();
-  smtp_server.Mailbox();
+  smtp_server.LoadMailbox();
   smtp_server.Run();
 
   return EXIT_SUCCESS;

@@ -12,7 +12,6 @@ typedef void (*sa_handler_ptr)(int);
 void SetSigintHandler(sa_handler_ptr handler);
 
 using SocketPtr = std::shared_ptr<int>;
-void RemoveClosedSockets(std::vector<SocketPtr> &socket_ptrs);
 
 class Server {
 public:
@@ -25,6 +24,7 @@ public:
 
   void Setup();
   void Run();
+
   bool WriteLine(int fd, const std::string &line) const;
   bool ReadLine(int fd, std::string &line) const;
 
@@ -37,6 +37,7 @@ protected:
   void BindAddress();
   void ListenSocket();
   void Log(const char *format, ...);
+  void RemoveClosedSockets();
 
   int listen_fd_;
   std::mutex open_sockects_mutex_;

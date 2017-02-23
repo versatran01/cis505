@@ -28,13 +28,7 @@ void SmtpServer::ReplyCode(int fd, int code) const {
 
 SmtpServer::SmtpServer(int port_no, int backlog, bool verbose,
                        const std::string &mailbox)
-    : Server(port_no, backlog, verbose), mailbox_(mailbox) {
-  if (mailbox_.empty()) {
-    LOG_F(ERROR, "No mailbox");
-  } else {
-    LOG_F(INFO, "Mailbox, dir={%s}", mailbox_.c_str());
-  }
-
+    : MailServer(port_no, backlog, verbose, mailbox) {
   // Construct regular expression for mail from and rcpt to and helo
   helo_regex_ = std::regex("HELO ([[:alnum:]]+)", std::regex::icase);
 
@@ -47,37 +41,6 @@ SmtpServer::SmtpServer(int port_no, int backlog, bool verbose,
 
   std::string rcpt_to_pattern = "RCPT TO:[ ]*<(" + mail_addr_pattern + ")>";
   rcpt_to_regex_ = std::regex(rcpt_to_pattern, std::regex::icase);
-}
-
-void SmtpServer::Mailbox() {
-  // Current working dir
-  fs::path cwd(fs::current_path());
-  LOG_F(INFO, "Current path, dir={%s}", cwd.c_str());
-
-  // Mailbox dir
-  fs::path mailbox_dir = cwd / mailbox_;
-
-  // Check if it is a directory
-  if (fs::is_directory(mailbox_dir)) {
-    LOG_F(INFO, "Mailbox, path={%s}", mailbox_dir.c_str());
-    // Read all users
-    for (const fs::directory_entry &file :
-         fs::directory_iterator(mailbox_dir)) {
-      if (file.path().extension().string() == ".mbox") {
-        const auto &name = file.path().stem().string();
-        users_.emplace_back(name, file.path().string());
-        LOG_F(INFO, "Add user, name={%s}", name.c_str());
-      }
-    }
-  } else {
-    LOG_F(ERROR, "Mailbox invalid, path={%s}", mailbox_dir.c_str());
-  }
-
-  if (users_.empty()) {
-    LOG_F(ERROR, "No user found, mbox={%s}", mailbox_.c_str());
-  }
-  LOG_F(INFO, "Total user, mbox={%s}, n={%zu}", mailbox_.c_str(),
-        users_.size());
 }
 
 void SmtpServer::Work(SocketPtr sock_ptr) {
@@ -324,11 +287,4 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       WriteLine(fd, "500 Syntax error, command unrecognized");
     }
   }
-}
-
-bool SmtpServer::UserExistsByAddr(const std::string &mail_addr) const {
-  auto pred = [&mail_addr](const User &user) {
-    return user.addr() == mail_addr;
-  };
-  return std::find_if(users_.begin(), users_.end(), pred) != users_.end();
 }

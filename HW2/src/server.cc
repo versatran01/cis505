@@ -24,11 +24,12 @@ std::string ExtractCommand(const std::string &request, size_t len) {
   return command;
 }
 
-void RemoveClosedSockets(std::vector<SocketPtr> &socket_ptrs) {
+void Server::RemoveClosedSockets() {
+  std::lock_guard<std::mutex> guard(open_sockects_mutex_);
   auto is_socket_closed = [](const auto &fd) { return *fd < 0; };
-  socket_ptrs.erase(
-      std::remove_if(socket_ptrs.begin(), socket_ptrs.end(), is_socket_closed),
-      socket_ptrs.end());
+  open_sockets_.erase(std::remove_if(open_sockets_.begin(), open_sockets_.end(),
+                                     is_socket_closed),
+                      open_sockets_.end());
 }
 
 bool Server::WriteLine(int fd, const std::string &line) const {
@@ -229,8 +230,7 @@ void Server::Run() {
     worker.detach();
 
     // Clean closed sockets
-    std::lock_guard<std::mutex> guard(open_sockects_mutex_);
-    RemoveClosedSockets(open_sockets_);
+    RemoveClosedSockets();
     LOG_F(INFO, "Remaining open connections, num={%zu}", open_sockets_.size());
   }
 }
@@ -240,9 +240,8 @@ void Server::Stop() {
   close(listen_fd_);
   LOG_F(INFO, "Close listen socket, fd={%d}, sig={SIGINT}", listen_fd_);
 
-  std::lock_guard<std::mutex> guard(open_sockects_mutex_);
   LOG_F(INFO, "Open sockets, num_fd={%zu}", open_sockets_.size());
-  RemoveClosedSockets(open_sockets_);
+  RemoveClosedSockets();
   LOG_F(INFO, "Remove closed sockets, num_fd={%zu}", open_sockets_.size());
 
   const auto response = "-ERR Server shutting down";
@@ -250,7 +249,6 @@ void Server::Stop() {
     if (*fd_ptr < 0)
       continue;
     WriteLine(*fd_ptr, response);
-    LOG_F(INFO, "[%d] Write, str={%s}", *fd_ptr, response);
     close(*fd_ptr);
     LOG_F(INFO, "Close client socket, fd={%d}", *fd_ptr);
   }
