@@ -13,6 +13,7 @@ public:
   void AddMail(const Mail &mail) { mails_.push_back(mail); }
   void Clear() { mails_.clear(); }
   size_t TotalOctets() const;
+  const Mail &GetMail(size_t i) const { return mails_[i]; }
 
 private:
   std::vector<Mail> mails_;

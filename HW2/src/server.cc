@@ -25,6 +25,9 @@ std::string ExtractCommand(const std::string &request, size_t len) {
 }
 
 std::string ExtractArguments(const std::string &request, size_t len) {
+  // 1 is the extra space
+  if (request.size() <= len + 1)
+    return {};
   return request.substr(len + 1);
 }
 

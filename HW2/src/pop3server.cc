@@ -1,6 +1,7 @@
 #include "pop3server.h"
 #include "lpi.h"
 #include "mail.h"
+#include "string_algorithms.h"
 
 #include "fsm.hpp"
 #include "loguru.hpp"
@@ -36,6 +37,7 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
   auto reset_user = [&]() { user_.reset(); };
   auto reply_err = [&](const std::string &msg) { ReplyErr(fd, msg); };
   auto reply_ok = [&](const std::string &msg) { ReplyOk(fd, msg); };
+  auto reply = [&](const std::string &msg) { WriteLine(fd, msg); };
 
   Pop3Fsm fsm;
   // from, to, trigger, guard, action
@@ -123,13 +125,41 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
       const auto octets = maildrop_.TotalOctets();
       const auto msg = std::to_string(n) + " " + std::to_string(octets);
       reply_ok(msg);
-      LOG_F(INFO, "[%d] Stat, n={%zu}, octets={%zu}", fd, n, octets);
+      LOG_F(INFO, "[%d] STAT, n={%zu}, octets={%zu}", fd, n, octets);
 
     } else if (command == "LIST") { // ====== LIST =====
       if (fsm.state() != State::Trans) {
         reply_err("PASS only works in AUTORHIZATION");
         continue;
       }
+
+      const auto n = maildrop_.NumMails();
+      auto arg = ExtractArguments(request);
+      trim(arg);
+      if (arg.empty()) {
+        LOG_F(INFO, "[%d] LIST no arg", fd);
+
+        const auto octets = maildrop_.TotalOctets();
+        reply_ok(std::to_string(n) + " messages (" + std::to_string(octets) +
+                 " octets)");
+
+        for (size_t i = 0; i < n; ++i) {
+          const auto &mail = maildrop_.GetMail(i);
+          reply(std::to_string(i + 1) + " " + std::to_string(mail.Octets()));
+        }
+        reply(".");
+      } else {
+        LOG_F(INFO, "[%d] LIST %s", fd, arg.c_str());
+        const auto i = std::stoi(arg);
+        if (i > n || i <= 0) {
+          reply_err("no such message, only " + std::to_string(n) +
+                    " messages in maildrop");
+        } else {
+          reply_ok(std::to_string(i) + " " +
+                   std::to_string(maildrop_.GetMail(i - 1).Octets()));
+        }
+      }
+
     } else if (command == "RETR") { // ===== RETR =====
       if (fsm.state() != State::Trans) {
         reply_err("PASS only works in AUTORHIZATION");
