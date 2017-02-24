@@ -16,8 +16,8 @@ public:
   void ReplyErr(int fd, const std::string &message) const;
 
 private:
-  UserPtr user_;
-  Maildrop maildrop_;
+  void Stat(int fd, const Maildrop &maildrop) const;
+  void List(int fd, const Maildrop &maildrop, const std::string &request) const;
 };
 
 #endif // POP3SERVER_H

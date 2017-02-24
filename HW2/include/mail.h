@@ -17,6 +17,7 @@ public:
   const std::vector<std::string> &recipients() const { return recipients_; }
   const TimePointSys &time() const { return time_; }
   const std::vector<std::string> &data() const { return data_; }
+  bool deleted() const { return deleted_; }
 
   void set_sender(const std::string &sender) { sender_ = sender; }
   void set_time(const TimePointSys &time) { time_ = time; }
@@ -38,7 +39,7 @@ private:
   std::vector<std::string> recipients_; // recipients' mail address
   std::vector<std::string> data_;       // each line of the mail's content
   TimePointSys time_;                   // time of recieveing
-  bool delete_ = false;                 // Whether to delete this mail
+  bool deleted_ = false;                // Whether to delete this mail
 };
 
 #endif // MAIL_H
