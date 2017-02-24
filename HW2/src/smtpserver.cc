@@ -31,14 +31,14 @@ SmtpServer::SmtpServer(int port_no, int backlog, bool verbose,
   helo_regex_ = std::regex("HELO ([[:alnum:]]+)", std::regex::icase);
 
   // TODO: Need to fix this pattern
-  std::string mail_addr_pattern("[[:alnum:]]+[[:alnum:].]*");
-  mail_addr_pattern = mail_addr_pattern + "@" + mail_addr_pattern;
+  std::string mailaddr_pattern("[[:alnum:]]+[[:alnum:].]*");
+  mailaddr_pattern = mailaddr_pattern + "@" + mailaddr_pattern;
 
-  std::string mail_from_pattern = "MAIL FROM:[ ]*<(" + mail_addr_pattern + ")>";
-  mail_from_regex_ = std::regex(mail_from_pattern, std::regex::icase);
+  std::string mail_from_pattern = "MAIL FROM:[ ]*<(" + mailaddr_pattern + ")>";
+  mailfrom_regex_ = std::regex(mail_from_pattern, std::regex::icase);
 
-  std::string rcpt_to_pattern = "RCPT TO:[ ]*<(" + mail_addr_pattern + ")>";
-  rcpt_to_regex_ = std::regex(rcpt_to_pattern, std::regex::icase);
+  std::string rcpt_to_pattern = "RCPT TO:[ ]*<(" + mailaddr_pattern + ")>";
+  rcptto_regex_ = std::regex(rcpt_to_pattern, std::regex::icase);
 }
 
 void SmtpServer::Work(SocketPtr sock_ptr) {
@@ -144,17 +144,16 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
 
       // Try match "MAIL FROM:<some.guy@somewhere>"
       std::smatch results;
-      if (!std::regex_search(request, results, mail_from_regex_)) {
+      if (!std::regex_search(request, results, mailfrom_regex_)) {
         LOG_F(WARNING, "[%d] Match MAIL FROM failed", fd);
         ReplyCode(fd, 501);
         continue;
       }
 
-      const auto &mail_addr = results.str(1);
-      LOG_F(INFO, "[%d] Valid MAIL FROM, mail_addr={%s}", fd,
-            mail_addr.c_str());
+      const auto &mailaddr = results.str(1);
+      LOG_F(INFO, "[%d] Valid MAIL FROM, mailaddr={%s}", fd, mailaddr.c_str());
 
-      mail.set_sender(mail_addr);
+      mail.set_sender(mailaddr);
       fsm.execute(Trigger::MAIL);
 
       const auto msg = "State transition: Wait -- MAIL/ok --> Mail";
@@ -172,30 +171,30 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
 
       // Try match "RCPT TO:<some.guy@somewhere>"
       std::smatch results;
-      if (!std::regex_search(request, results, rcpt_to_regex_)) {
+      if (!std::regex_search(request, results, rcptto_regex_)) {
         LOG_F(WARNING, "[%d] Match RCPT TO failed", fd);
         ReplyCode(fd, 501);
         continue;
       }
 
-      const auto &mail_addr = results.str(1);
-      LOG_F(INFO, "[%d] Valid RCPT TO, mail_addr={%s}", fd, mail_addr.c_str());
+      const auto &mailaddr = results.str(1);
+      LOG_F(INFO, "[%d] Valid RCPT TO, mailaddr={%s}", fd, mailaddr.c_str());
 
       // Check if user exists
-      if (!UserExistsByMailAddr(mail_addr)) {
-        LOG_F(WARNING, "[%d] User doesn't exist, mail_addr={%s}", fd,
-              mail_addr.c_str());
+      if (!UserExistsByMailaddr(mailaddr)) {
+        LOG_F(WARNING, "[%d] User doesn't exist, mailaddr={%s}", fd,
+              mailaddr.c_str());
         WriteLine(fd, "550 No such user");
         continue;
       }
 
-      if (!mail.RecipientExists(mail_addr)) {
-        mail.AddRecipient(mail_addr);
-        LOG_F(INFO, "[%d] Recipient added, mail_addr={%s}", fd,
-              mail_addr.c_str());
+      if (!mail.RecipientExists(mailaddr)) {
+        mail.AddRecipient(mailaddr);
+        LOG_F(INFO, "[%d] Recipient added, mailaddr={%s}", fd,
+              mailaddr.c_str());
       } else {
-        LOG_F(WARNING, "[%d] Recipient already added, mail_addr={%s}", fd,
-              mail_addr.c_str());
+        LOG_F(WARNING, "[%d] Recipient already added, mailaddr={%s}", fd,
+              mailaddr.c_str());
       }
 
       fsm.execute(Trigger::RCPT);
@@ -258,17 +257,17 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
 
 void SmtpServer::SendMail(const Mail &mail, int fd) const {
   for (const auto &recipient : mail.recipients()) {
-    auto user = GetUserByMailAddr(recipient);
+    auto user = GetUserByMailaddr(recipient);
 
     // This should never happen, because we checked this in Rcpt state
     if (!user) {
-      LOG_F(ERROR, "[%d] Could not find recipient, mail_addr={%s}", fd,
+      LOG_F(ERROR, "[%d] Could not find recipient, mailaddr={%s}", fd,
             recipient.c_str());
       continue;
     }
 
     user->WriteMail(mail);
-    LOG_F(INFO, "[%d] Finish sending to recipient, mail_addr={%s}", fd,
+    LOG_F(INFO, "[%d] Finish sending to recipient, mailaddr={%s}", fd,
           recipient.c_str());
   }
 }

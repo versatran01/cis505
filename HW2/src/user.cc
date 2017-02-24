@@ -4,7 +4,7 @@
 
 User::User(const std::string &mailbox, const std::string &username)
     : mailbox_(mailbox), username_(username), password_("cis505"),
-      mail_addr_(username + "@localhost"),
+      mailaddr_(username + "@localhost"),
       mutex_(std::make_shared<std::mutex>()) {}
 
 void User::WriteMail(const Mail &mail) const {
@@ -16,12 +16,11 @@ void User::WriteMail(const Mail &mail) const {
   for (const auto &line : mail.data()) {
     mbox_file << line << "\n";
   }
-  mbox_file << "\n";
   mbox_file.close();
 }
 
-MailDrop User::LoadMailDrop() const {
-  MailDrop mail_drop;
+Maildrop User::ReadMailDrop() const {
+  Maildrop mail_drop;
   std::string line;
   std::ifstream mbox_file(mailbox_);
   while (std::getline(mbox_file, line)) {

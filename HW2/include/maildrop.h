@@ -3,16 +3,15 @@
 
 #include "mail.h"
 
-class MailDrop {
+class Maildrop {
 public:
-  MailDrop() = default;
+  Maildrop() = default;
 
   const std::vector<Mail> &mails() const { return mails_; }
   size_t NumMails() const { return mails_.size(); }
 
 private:
   std::vector<Mail> mails_;
-  std::vector<int> delete_mask_;
 };
 
 #endif // MAILDROP_H

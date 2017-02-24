@@ -17,17 +17,18 @@ public:
   const std::string &mailbox() const { return mailbox_; }
   const std::string &username() const { return username_; }
   const std::string &password() const { return password_; }
-  const std::string &mail_addr() const { return mail_addr_; }
+  const std::string &mailaddr() const { return mailaddr_; }
   const MutexPtr &mutex() const { return mutex_; }
 
   void WriteMail(const Mail &mail) const;
-  MailDrop LoadMailDrop() const;
+  Maildrop ReadMailDrop() const;
+  void WriteMailDrop(const Maildrop &maildrop) const;
 
 private:
   std::string mailbox_;
   std::string username_;
   std::string password_;
-  std::string mail_addr_;
+  std::string mailaddr_;
   MutexPtr mutex_;
 };
 

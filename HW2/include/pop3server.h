@@ -17,7 +17,7 @@ public:
 
 private:
   UserPtr user_;
-  MailDrop mail_drop_;
+  Maildrop mail_drop_;
 };
 
 #endif // POP3SERVER_H

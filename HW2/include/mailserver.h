@@ -13,9 +13,9 @@ public:
   const std::vector<UserPtr> &users() const { return users_; }
 
   void LoadMailbox();
-  bool UserExistsByMailAddr(const std::string &mail_addr) const;
+  bool UserExistsByMailaddr(const std::string &mail_addr) const;
   bool UserExistsByUsername(const std::string &username) const;
-  UserPtr GetUserByMailAddr(const std::string &mail_addr) const;
+  UserPtr GetUserByMailaddr(const std::string &mail_addr) const;
   UserPtr GetUserByUsername(const std::string &username) const;
 
 protected:

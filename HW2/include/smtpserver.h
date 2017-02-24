@@ -16,8 +16,8 @@ public:
   void SendMail(const Mail &mail, int fd) const;
 
 private:
-  std::regex mail_from_regex_;
-  std::regex rcpt_to_regex_;
+  std::regex mailfrom_regex_;
+  std::regex rcptto_regex_;
   std::regex helo_regex_;
 };
 

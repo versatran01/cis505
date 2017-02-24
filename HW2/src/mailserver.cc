@@ -47,17 +47,17 @@ void MailServer::LoadMailbox() {
         users_.size());
 }
 
-bool MailServer::UserExistsByMailAddr(const std::string &mail_addr) const {
-  return GetUserByMailAddr(mail_addr) != nullptr;
+bool MailServer::UserExistsByMailaddr(const std::string &mailaddr) const {
+  return GetUserByMailaddr(mailaddr) != nullptr;
 }
 
 bool MailServer::UserExistsByUsername(const std::string &username) const {
   return GetUserByUsername(username) != nullptr;
 }
 
-UserPtr MailServer::GetUserByMailAddr(const std::string &mail_addr) const {
-  auto pred = [&mail_addr](const auto &user) {
-    return user->mail_addr() == mail_addr;
+UserPtr MailServer::GetUserByMailaddr(const std::string &mailaddr) const {
+  auto pred = [&mailaddr](const auto &user) {
+    return user->mailaddr() == mailaddr;
   };
   auto user_iter = std::find_if(users_.begin(), users_.end(), pred);
 

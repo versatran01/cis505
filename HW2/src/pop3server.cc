@@ -89,7 +89,7 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
           fsm.execute(Trigger::PASS_OK);
 
           // Prepare maildrop
-          mail_drop_ = user_->LoadMailDrop();
+          mail_drop_ = user_->ReadMailDrop();
 
           reply_ok("maildrop locked and ready");
           LOG_F(INFO, "[%d] correct passwrod", fd);
