@@ -18,6 +18,8 @@ public:
 private:
   void Stat(int fd, const Maildrop &maildrop) const;
   void List(int fd, const Maildrop &maildrop, const std::string &request) const;
+  bool User(int fd, UserPtr &user, const std::string &request) const;
+  void Pass(int fd) const;
 };
 
 #endif // POP3SERVER_H

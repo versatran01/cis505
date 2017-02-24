@@ -67,18 +67,11 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
         continue;
       }
 
-      const auto username = ExtractArguments(request);
-      user = GetUserByUsername(username);
-      if (!user) {
-        ReplyErr(fd, "No mailbox here for " + username);
-        LOG_F(WARNING, "No mailbox here for, user={%s}", username.c_str());
-        continue;
+      if (User(fd, user, request)) {
+        CHECK_F(user.get() != nullptr, "User is null");
+        fsm.execute(Trigger::USER);
+        CHECK_F(fsm.state() == State::Pass, "Auth_Name -- USER --> Auth_Pass");
       }
-
-      fsm.execute(Trigger::USER);
-      ReplyOk(fd, username + " is a valid mailbox");
-
-      CHECK_F(fsm.state() == State::Pass, "Auth_Name -- USER --> Auth_Pass");
     } else if (command == "PASS") { // ===== PASS =====
       if (fsm.state() != State::Pass) {
         ReplyErr(fd, "PASS only works in AUTORHIZATION");
@@ -92,7 +85,7 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
 
           fsm.execute(Trigger::PASS_OK);
 
-          ReplyOk(fd, "maildrop locked and ready");
+          reply_ok("maildrop locked and ready");
           LOG_F(INFO, "[%d] correct passwrod", fd);
 
           // Prepare maildrop
@@ -102,7 +95,7 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
           CHECK_F(fsm.state() == State::Trans,
                   "Auth_Pass -- PASS_OK --> Trans");
         } else {
-          ReplyErr(fd, "unable to lock maildrop");
+          reply_err("unable to lock maildrop");
           fsm.execute(Trigger::PASS_ERR);
 
           LOG_F(WARNING, "[%d] Maildrop already locked", fd);
@@ -110,7 +103,7 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
                   "Auth_Pass -- PASS_ERR --> Auth_User");
         }
       } else {
-        ReplyErr(fd, "invalid password");
+        reply_err("invalid password");
         fsm.execute(Trigger::PASS_ERR);
 
         LOG_F(WARNING, "[%d] Invalid password", fd);
@@ -122,14 +115,12 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
         reply_err("PASS only works in AUTORHIZATION");
         continue;
       }
-
       Stat(fd, maildrop);
     } else if (command == "LIST") { // ====== LIST =====
       if (fsm.state() != State::Trans) {
         reply_err("PASS only works in AUTORHIZATION");
         continue;
       }
-
       List(fd, maildrop, request);
     } else if (command == "RETR") { // ===== RETR =====
       if (fsm.state() != State::Trans) {
@@ -195,7 +186,6 @@ void Pop3Server::Stat(int fd, const Maildrop &maildrop) const {
 
 void Pop3Server::List(int fd, const Maildrop &maildrop,
                       const std::string &request) const {
-
   const auto n = maildrop.NumMails();
   auto arg = ExtractArguments(request);
   trim(arg);
@@ -203,10 +193,12 @@ void Pop3Server::List(int fd, const Maildrop &maildrop,
   if (arg.empty()) {
     LOG_F(INFO, "[%d] LIST no arg", fd);
 
+    // Overall stat
     const auto octets = maildrop.TotalOctets();
     ReplyOk(fd, std::to_string(n) + " messages (" + std::to_string(octets) +
                     " octets)");
 
+    // Output stat for each mail
     for (size_t i = 0; i < n; ++i) {
       const auto &mail = maildrop.GetMail(i);
       if (!mail.deleted()) {
@@ -217,6 +209,7 @@ void Pop3Server::List(int fd, const Maildrop &maildrop,
     WriteLine(fd, ".");
   } else {
     LOG_F(INFO, "[%d] LIST %s", fd, arg.c_str());
+
     const auto i = std::stoi(arg);
     if (i > n || i <= 0) {
       ReplyErr(fd, "no such message, only " + std::to_string(n) +
@@ -230,4 +223,19 @@ void Pop3Server::List(int fd, const Maildrop &maildrop,
       }
     }
   }
+}
+
+bool Pop3Server::User(int fd, UserPtr &user, const std::string &request) const {
+  const auto username = ExtractArguments(request);
+  user = GetUserByUsername(username);
+
+  if (!user) {
+    ReplyErr(fd, "No mailbox here for " + username);
+    LOG_F(WARNING, "No mailbox here for, user={%s}", username.c_str());
+    return false;
+  }
+
+  ReplyOk(fd, username + " is a valid mailbox");
+  LOG_F(WARNING, "Found valid mailbox, user={%s}", username.c_str());
+  return true;
 }
