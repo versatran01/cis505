@@ -183,7 +183,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
 
       // Check if user exists
       if (!UserExistsByMailAddr(mail_addr)) {
-        LOG_F(INFO, "[%d] User doesn't exist, mail_addr={%s}", fd,
+        LOG_F(WARNING, "[%d] User doesn't exist, mail_addr={%s}", fd,
               mail_addr.c_str());
         WriteLine(fd, "550 No such user");
         continue;
@@ -258,19 +258,16 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
 
 void SmtpServer::SendMail(const Mail &mail, int fd) const {
   for (const auto &recipient : mail.recipients()) {
-    auto user_iter = std::find_if(users_.begin(), users_.end(),
-                                  [&recipient](const User &user) {
-                                    return user.mail_addr() == recipient;
-                                  });
+    auto user = GetUserByMailAddr(recipient);
 
     // This should never happen, because we checked this in Rcpt state
-    if (user_iter == users_.end()) {
+    if (!user) {
       LOG_F(ERROR, "[%d] Could not find recipient, mail_addr={%s}", fd,
             recipient.c_str());
       continue;
     }
 
-    user_iter->WriteMail(mail);
+    user->WriteMail(mail);
     LOG_F(INFO, "[%d] Finish sending to recipient, mail_addr={%s}", fd,
           recipient.c_str());
   }

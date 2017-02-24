@@ -32,7 +32,7 @@ void MailServer::LoadMailbox() {
       const fs::path &mailbox = file.path();
       if (mailbox.extension().string() == ".mbox") {
         const auto &name = mailbox.stem().string();
-        users_.emplace_back(mailbox.string(), name);
+        users_.push_back(std::make_shared<User>(mailbox.string(), name));
         LOG_F(INFO, "Add user, name={%s}", name.c_str());
       }
     }
@@ -48,15 +48,31 @@ void MailServer::LoadMailbox() {
 }
 
 bool MailServer::UserExistsByMailAddr(const std::string &mail_addr) const {
-  auto pred = [&mail_addr](const User &user) {
-    return user.mail_addr() == mail_addr;
-  };
-  return std::find_if(users_.begin(), users_.end(), pred) != users_.end();
+  return GetUserByMailAddr(mail_addr) != nullptr;
 }
 
 bool MailServer::UserExistsByUsername(const std::string &username) const {
-  auto pred = [&username](const User &user) {
-    return user.username() == username;
+  return GetUserByUsername(username) != nullptr;
+}
+
+UserPtr MailServer::GetUserByMailAddr(const std::string &mail_addr) const {
+  auto pred = [&mail_addr](const auto &user) {
+    return user->mail_addr() == mail_addr;
   };
-  return std::find_if(users_.begin(), users_.end(), pred) != users_.end();
+  auto user_iter = std::find_if(users_.begin(), users_.end(), pred);
+
+  if (user_iter != users_.end())
+    return *user_iter;
+  return {nullptr};
+}
+
+UserPtr MailServer::GetUserByUsername(const std::string &username) const {
+  auto pred = [&username](const auto &user) {
+    return user->username() == username;
+  };
+  auto user_iter = std::find_if(users_.begin(), users_.end(), pred);
+
+  if (user_iter != users_.end())
+    return *user_iter;
+  return {nullptr};
 }

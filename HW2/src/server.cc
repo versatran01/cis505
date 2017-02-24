@@ -24,6 +24,10 @@ std::string ExtractCommand(const std::string &request, size_t len) {
   return command;
 }
 
+std::string ExtractArguments(const std::string &request, size_t len) {
+  return request.substr(len + 1);
+}
+
 void Server::RemoveClosedSockets() {
   std::lock_guard<std::mutex> guard(open_sockects_mutex_);
   auto is_socket_closed = [](const auto &fd) { return *fd < 0; };

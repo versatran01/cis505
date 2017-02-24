@@ -19,3 +19,14 @@ void User::WriteMail(const Mail &mail) const {
   mbox_file << "\n";
   mbox_file.close();
 }
+
+MailDrop User::LoadMailDrop() const {
+  MailDrop mail_drop;
+  std::string line;
+  std::ifstream mbox_file(mailbox_);
+  while (std::getline(mbox_file, line)) {
+    std::cout << line << std::endl;
+  }
+
+  return mail_drop;
+}

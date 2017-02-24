@@ -10,15 +10,17 @@ public:
              const std::string &mailbox);
 
   const std::string &mailbox() const { return mailbox_; }
-  const std::vector<User> &users() const { return users_; }
+  const std::vector<UserPtr> &users() const { return users_; }
 
   void LoadMailbox();
   bool UserExistsByMailAddr(const std::string &mail_addr) const;
   bool UserExistsByUsername(const std::string &username) const;
+  UserPtr GetUserByMailAddr(const std::string &mail_addr) const;
+  UserPtr GetUserByUsername(const std::string &username) const;
 
 protected:
   std::string mailbox_;
-  std::vector<User> users_;
+  std::vector<UserPtr> users_;
 };
 
 #endif // MAILSERVER_H

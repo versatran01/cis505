@@ -17,13 +17,13 @@ LIB_DIR = lib
 CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -I/opt/local/include/ -L/opt/local/bin/openssl -Wall -g   
 LDFLAGS = -shared
 
-_DEPS = lpi.h server.h string_algorithms.h user.h smtpserver.h mail.h mailserver.h pop3server.h
+_DEPS = lpi.h server.h string_algorithms.h user.h smtpserver.h mail.h mailserver.h pop3server.h maildrop.h
 DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
 
 _OBJS_MS1 = lpi.o server.o string_algorithms.o 
 OBJS_MS1 = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS_MS1))
 
-_OBJS_MS23 = user.o mail.o mailserver.o 
+_OBJS_MS23 = user.o mail.o mailserver.o maildrop.o
 OBJS_MS23 = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS_MS23))
 
 
