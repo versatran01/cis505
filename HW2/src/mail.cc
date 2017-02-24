@@ -1,6 +1,9 @@
 #include "mail.h"
 
 #include <algorithm>
+#include <iomanip>
+
+Mail::Mail(const std::string &sender) : sender_(sender) {}
 
 void Mail::Clear() {
   sender_.clear();
@@ -8,8 +11,15 @@ void Mail::Clear() {
   data_.clear();
 }
 
-bool Mail::RecipientExists(const std::string &mail_addr) const {
-  return std::find(recipients_.begin(), recipients_.end(), mail_addr) !=
+void Mail::SetTimeFromString(const std::string &time_str) {
+  std::tm tm = {};
+  std::stringstream ss(time_str);
+  ss >> std::get_time(&tm, "%a %b %d %H:%M:%S %Y");
+  time_ = std::chrono::system_clock::from_time_t(std::mktime(&tm));
+}
+
+bool Mail::RecipientExists(const std::string &mailaddr) const {
+  return std::find(recipients_.begin(), recipients_.end(), mailaddr) !=
          recipients_.end();
 }
 

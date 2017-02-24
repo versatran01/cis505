@@ -10,6 +10,8 @@ public:
   const std::vector<Mail> &mails() const { return mails_; }
   size_t NumMails() const { return mails_.size(); }
 
+  void AddMail(const Mail &mail) { mails_.push_back(mail); }
+
 private:
   std::vector<Mail> mails_;
 };

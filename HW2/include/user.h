@@ -1,12 +1,12 @@
 #ifndef USER_H
 #define USER_H
 
+#include "mail.h"
+#include "maildrop.h"
+
 #include <memory>
 #include <mutex>
 #include <string>
-
-#include "mail.h"
-#include "maildrop.h"
 
 using MutexPtr = std::shared_ptr<std::mutex>;
 
@@ -14,6 +14,7 @@ class User {
 public:
   User(const std::string &mailbox, const std::string &username);
 
+  // Getters
   const std::string &mailbox() const { return mailbox_; }
   const std::string &username() const { return username_; }
   const std::string &password() const { return password_; }
@@ -21,8 +22,8 @@ public:
   const MutexPtr &mutex() const { return mutex_; }
 
   void WriteMail(const Mail &mail) const;
-  Maildrop ReadMailDrop() const;
-  void WriteMailDrop(const Maildrop &maildrop) const;
+  Maildrop ReadMaildrop() const;
+  void WriteMaildrop(const Maildrop &maildrop) const;
 
 private:
   std::string mailbox_;

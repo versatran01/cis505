@@ -88,11 +88,12 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
 
           fsm.execute(Trigger::PASS_OK);
 
-          // Prepare maildrop
-          mail_drop_ = user_->ReadMailDrop();
-
           reply_ok("maildrop locked and ready");
           LOG_F(INFO, "[%d] correct passwrod", fd);
+
+          // Prepare maildrop
+          mail_drop_ = user_->ReadMaildrop();
+          LOG_F(INFO, "[%d] Read maildrop, n={%zu}", fd, mail_drop_.NumMails());
 
           CHECK_F(fsm.state() == State::Trans,
                   "Auth_Pass -- PASS_OK --> Trans");
