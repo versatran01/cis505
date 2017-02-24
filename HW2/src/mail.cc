@@ -31,3 +31,11 @@ std::string Mail::TimeStr() const {
   const auto time = std::chrono::system_clock::to_time_t(time_);
   return std::string(std::ctime(&time));
 }
+
+size_t Mail::Octets() const {
+  size_t n = 0;
+  for (const auto &line : data_) {
+    n += (line.size() + 2);
+  }
+  return n;
+}

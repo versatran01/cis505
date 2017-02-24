@@ -31,6 +31,7 @@ public:
   bool Empty() const;
   void Stamp() { time_ = std::chrono::system_clock::now(); }
   std::string TimeStr() const;
+  size_t Octets() const;
 
 private:
   std::string sender_;                  // sender's mail address

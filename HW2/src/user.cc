@@ -35,7 +35,7 @@ Maildrop User::ReadMaildrop() const {
 
   std::string mail_head_pattern =
       "From <(" + mailaddr_pattern + ")> (" + datetime_pattern + ")";
-  std::regex mail_head_regex(mail_head_pattern, std::regex::icase);
+  std::regex mail_head_regex(mail_head_pattern);
 
   std::string line;
   std::ifstream mbox_file(mailbox_);
@@ -62,5 +62,6 @@ Maildrop User::ReadMaildrop() const {
     mail.AddLine(line);
   }
 
+  maildrop.AddMail(mail);
   return maildrop;
 }

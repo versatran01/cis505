@@ -92,8 +92,8 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
           LOG_F(INFO, "[%d] correct passwrod", fd);
 
           // Prepare maildrop
-          mail_drop_ = user_->ReadMaildrop();
-          LOG_F(INFO, "[%d] Read maildrop, n={%zu}", fd, mail_drop_.NumMails());
+          maildrop_ = user_->ReadMaildrop();
+          LOG_F(INFO, "[%d] Read maildrop, n={%zu}", fd, maildrop_.NumMails());
 
           CHECK_F(fsm.state() == State::Trans,
                   "Auth_Pass -- PASS_OK --> Trans");
@@ -118,6 +118,13 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
         reply_err("PASS only works in AUTORHIZATION");
         continue;
       }
+
+      const auto n = maildrop_.NumMails();
+      const auto octets = maildrop_.TotalOctets();
+      const auto msg = std::to_string(n) + " " + std::to_string(octets);
+      reply_ok(msg);
+      LOG_F(INFO, "[%d] Stat, n={%zu}, octets={%zu}", fd, n, octets);
+
     } else if (command == "LIST") { // ====== LIST =====
       if (fsm.state() != State::Trans) {
         reply_err("PASS only works in AUTORHIZATION");
@@ -174,5 +181,5 @@ void Pop3Server::ReplyOk(int fd, const std::string &message) const {
 }
 
 void Pop3Server::ReplyErr(int fd, const std::string &message) const {
-  WriteLine(fd, "+Err " + message);
+  WriteLine(fd, "-ERR " + message);
 }

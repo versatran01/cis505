@@ -11,6 +11,8 @@ public:
   size_t NumMails() const { return mails_.size(); }
 
   void AddMail(const Mail &mail) { mails_.push_back(mail); }
+  void Clear() { mails_.clear(); }
+  size_t TotalOctets() const;
 
 private:
   std::vector<Mail> mails_;
