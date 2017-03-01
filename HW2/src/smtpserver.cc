@@ -8,7 +8,7 @@
 
 #include <algorithm>
 
-enum class State { Init, Idle, Wait, Mail, Rcpt, Data, Send };
+enum class State { Init, Wait, Mail, Rcpt, Data, Send };
 enum class Trigger { HELO, MAIL, RCPT, RSET, QUIT, DATA, CONN_, EOML_, SENT_ };
 using SmtpFsm = FSM::Fsm<State, State::Init, Trigger>; // State machine
 
@@ -27,9 +27,6 @@ void SmtpServer::ReplyCode(int fd, int code) const {
 SmtpServer::SmtpServer(int port_no, int backlog, bool verbose,
                        const std::string &mailbox)
     : MailServer(port_no, backlog, verbose, mailbox) {
-  // Construct regular expression for mail from and rcpt to and helo
-  helo_regex_ = std::regex("HELO ([[:alnum:]]+)", std::regex::icase);
-
   // TODO: Need to fix this pattern
   std::string mailaddr_pattern("[[:alnum:]]+[[:alnum:].]*");
   mailaddr_pattern = mailaddr_pattern + "@" + mailaddr_pattern;
@@ -61,9 +58,9 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
   // from, to, trigger, guard, action
   fsm.add_transitions({
       // On connection
-      {State::Init, State::Idle, Trigger::CONN_, nullptr, greet},
+      {State::Init, State::Wait, Trigger::CONN_, nullptr, greet},
       // Flow
-      {State::Idle, State::Wait, Trigger::HELO, nullptr, ok_helo},
+      {State::Wait, State::Wait, Trigger::HELO, nullptr, ok_helo},
       {State::Wait, State::Mail, Trigger::MAIL, nullptr, ok},
       {State::Mail, State::Rcpt, Trigger::RCPT, nullptr, ok},
       {State::Rcpt, State::Rcpt, Trigger::RCPT, nullptr, ok},
@@ -77,7 +74,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
 
   // On connection
   fsm.execute(Trigger::CONN_);
-  CHECK_F(fsm.state() == State::Idle, "Init -- CONN/greet --> Idle");
+  CHECK_F(fsm.state() == State::Wait, "Init -- CONN/greet --> Wait");
 
   // State machine here
   while (true) {
@@ -110,26 +107,25 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
     // Check command
     if (command == "HELO") {
       // ===== HELO =====
-      // State has to be Idle
-      if (fsm.state() != State::Idle) {
+      // State has to be Wait
+      if (fsm.state() != State::Wait) {
         ReplyCode(fd, 503);
         continue;
       }
 
       // Try match "HELO <domain>"
-      std::smatch results;
-      if (!std::regex_search(request, results, helo_regex_)) {
+      const auto domain = ExtractArguments(request);
+      if (domain.empty()) {
         LOG_F(WARNING, "[%d] Match HELO failed", fd);
         ReplyCode(fd, 501);
         continue;
       }
 
-      const auto &domain = results.str(1);
       LOG_F(INFO, "[%d] Valid HELO, domain={%s}", fd, domain.c_str());
 
       fsm.execute(Trigger::HELO);
 
-      const auto msg = "State transition: Idle -- HELO/ok --> Wait";
+      const auto msg = "State transition: Wait -- HELO/ok --> Wait";
       CHECK_F(fsm.state() == State::Wait);
       LOG_F(INFO, "[%d] %s", fd, msg);
 

@@ -18,7 +18,6 @@ public:
 private:
   std::regex mailfrom_regex_;
   std::regex rcptto_regex_;
-  std::regex helo_regex_;
 };
 
 #endif // SMTP_SERVER_H
