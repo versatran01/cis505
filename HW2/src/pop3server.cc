@@ -13,6 +13,11 @@ enum class State { Init, User, Pass, Trans, Update };
 enum class Trigger { CONN_, USER, PASS_OK, PASS_ERR, QUIT, STAT };
 using Pop3Fsm = FSM::Fsm<State, State::Init, Trigger>; // State machine
 
+/**
+ * @brief Convert MD5 hash to c++ string
+ * @param hash a vector of unsigned char
+ * @return string representation in hex
+ */
 std::string StringFromHash(const std::vector<u_char> &hash) {
   static const char *hex_digits = "0123456789ABCDEF";
   std::string str;
@@ -24,6 +29,11 @@ std::string StringFromHash(const std::vector<u_char> &hash) {
   return str;
 }
 
+/**
+ * @brief Get unique id of a mail, which is just computing hash of its content
+ * @param mail
+ * @return unique id in string
+ */
 std::string UniqueId(const Mail &mail) {
   const auto data = mail.Data();
   std::vector<unsigned char> buffer(MD5_DIGEST_LENGTH);
@@ -129,7 +139,14 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
       }
 
       Stat(fd, maildrop);
-    } else if (command == "LIST") { // ====== LIST =====
+    } else if (command == "RSET") { // ===== RSET =====
+      if (fsm.state() != State::Trans) {
+        reply_err("STAT only works in TRANSACTION");
+        continue;
+      }
+
+      Rset(fd, maildrop);
+    } else if (command == "LIST") { // ===== LIST =====
       if (fsm.state() != State::Trans) {
         reply_err("LIST only works in TRANSACTION");
         continue;
@@ -216,6 +233,17 @@ void Pop3Server::Stat(int fd, const Maildrop &md) const {
   const auto msg = std::to_string(n) + " " + std::to_string(octets);
   ReplyOk(fd, msg);
   LOG_F(INFO, "[%d] STAT, n={%zu}, octets={%zu}", fd, n, octets);
+}
+
+void Pop3Server::Rset(int fd, const Maildrop &md) const {
+  for (const Mail &mail : md.mails()) {
+    mail.MarkUndeleted();
+  }
+  const auto n = md.NumMails();
+  const auto octets = md.TotalOctets();
+  const auto msg = std::to_string(n) + " " + std::to_string(octets);
+  ReplyOk(fd, msg);
+  LOG_F(INFO, "[%d] RSET, n={%zu}, octets={%zu}", fd, n, octets);
 }
 
 void Pop3Server::List(int fd, const Maildrop &md, int arg) const {

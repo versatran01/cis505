@@ -28,6 +28,7 @@ public:
   }
   void AddLine(const std::string &line) { lines_.push_back(line); }
   void MarkDeleted() const { deleted_ = true; }
+  void MarkUndeleted() const { deleted_ = false; }
 
   bool RecipientExists(const std::string &mailaddr) const;
   void Clear();
