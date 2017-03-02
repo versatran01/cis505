@@ -56,7 +56,9 @@ Maildrop User::ReadMaildrop() const {
     mail.AddLine(line);
   }
 
-  maildrop.AddMail(mail);
+  if (!mail.Empty()) {
+    maildrop.AddMail(mail);
+  }
   return maildrop;
 }
 
