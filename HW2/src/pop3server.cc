@@ -13,8 +13,18 @@ enum class State { Init, User, Pass, Trans, Update };
 enum class Trigger { CONN_, USER, PASS_OK, PASS_ERR, QUIT, STAT };
 using Pop3Fsm = FSM::Fsm<State, State::Init, Trigger>; // State machine
 
-std::string UniqueId(const Mail &mail) {
+std::string StringFromHash(const std::vector<u_char> &hash) {
   static const char *hex_digits = "0123456789ABCDEF";
+  std::string str;
+  str.reserve(MD5_DIGEST_LENGTH * 2);
+  for (size_t i = 0; i != MD5_DIGEST_LENGTH; ++i) {
+    str += hex_digits[hash[i] / MD5_DIGEST_LENGTH];
+    str += hex_digits[hash[i] % MD5_DIGEST_LENGTH];
+  }
+  return str;
+}
+
+std::string UniqueId(const Mail &mail) {
   const auto data = mail.Data();
   std::vector<unsigned char> buffer(MD5_DIGEST_LENGTH);
 
@@ -23,13 +33,7 @@ std::string UniqueId(const Mail &mail) {
   MD5_Update(&c, data.data(), data.length());
   MD5_Final(buffer.data(), &c);
 
-  std::string unique_id;
-  unique_id.reserve(MD5_DIGEST_LENGTH * 2);
-  for (size_t i = 0; i != MD5_DIGEST_LENGTH; ++i) {
-    unique_id += hex_digits[buffer[i] / MD5_DIGEST_LENGTH];
-    unique_id += hex_digits[buffer[i] % MD5_DIGEST_LENGTH];
-  }
-  return unique_id;
+  return StringFromHash(buffer);
 }
 
 Pop3Server::Pop3Server(int port_no, int backlog, bool verbose,
@@ -138,14 +142,20 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
         continue;
       }
 
-      Retr(fd, maildrop, request);
+      CmdHandle handle = [&](int fd, const Maildrop &md, int arg) {
+        Retr(fd, md, arg);
+      };
+      IntArgCmd(fd, maildrop, request, command, handle);
     } else if (command == "DELE") { // ===== DELE =====
       if (fsm.state() != State::Trans) {
         reply_err("DELE only works in TRANSACTION");
         continue;
       }
 
-      Dele(fd, maildrop, request);
+      CmdHandle handle = [&](int fd, const Maildrop &md, int arg) {
+        Dele(fd, md, arg);
+      };
+      IntArgCmd(fd, maildrop, request, command, handle);
     } else if (command == "NOOP") { // ===== NOOP =====
       if (fsm.state() != State::Trans) {
         reply_err("NOOP only works in TRANSACTION");
@@ -186,40 +196,40 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
   }
 }
 
-void Pop3Server::ReplyOk(int fd, const std::string &message) const {
-  WriteLine(fd, "+OK " + message);
+void Pop3Server::ReplyOk(int fd, const std::string &msg) const {
+  WriteLine(fd, "+OK " + msg);
 }
 
-void Pop3Server::ReplyErr(int fd, const std::string &message) const {
-  WriteLine(fd, "-ERR " + message);
+void Pop3Server::ReplyErr(int fd, const std::string &msg) const {
+  WriteLine(fd, "-ERR " + msg);
 }
 
-void Pop3Server::Stat(int fd, const Maildrop &maildrop) const {
-  const auto n = maildrop.NumMails();
-  const auto octets = maildrop.TotalOctets();
+void Pop3Server::Stat(int fd, const Maildrop &md) const {
+  const auto n = md.NumMails();
+  const auto octets = md.TotalOctets();
   const auto msg = std::to_string(n) + " " + std::to_string(octets);
   ReplyOk(fd, msg);
   LOG_F(INFO, "[%d] STAT, n={%zu}, octets={%zu}", fd, n, octets);
 }
 
-void Pop3Server::List(int fd, const Maildrop &maildrop,
-                      const std::string &request) const {
-  const auto n = maildrop.NumMails(false);
-  const auto n_all = maildrop.NumMails(true);
-  auto arg = ExtractArgument(request);
+void Pop3Server::List(int fd, const Maildrop &md,
+                      const std::string &req) const {
+  const auto n = md.NumMails(false);
+  const auto n_all = md.NumMails(true);
+  auto arg = ExtractArgument(req);
   trim(arg);
 
   if (arg.empty()) {
     LOG_F(INFO, "[%d] LIST no arg", fd);
 
     // Overall stat
-    const auto octets = maildrop.TotalOctets();
+    const auto octets = md.TotalOctets();
     ReplyOk(fd, std::to_string(n) + " messages (" + std::to_string(octets) +
                     " octets)");
 
     // Output stat for each mail
     for (size_t i = 0; i < n_all; ++i) {
-      const auto &mail = maildrop.GetMail(i);
+      const auto &mail = md.GetMail(i);
       if (!mail.deleted()) {
         WriteLine(fd,
                   std::to_string(i + 1) + " " + std::to_string(mail.Octets()));
@@ -234,7 +244,7 @@ void Pop3Server::List(int fd, const Maildrop &maildrop,
       ReplyErr(fd, "no such message, only " + std::to_string(n) +
                        " messages in maildrop");
     } else {
-      const Mail &mail = maildrop.GetMail(i - 1);
+      const Mail &mail = md.GetMail(i - 1);
       if (!mail.deleted()) {
         ReplyOk(fd, std::to_string(i) + " " + std::to_string(mail.Octets()));
       } else {
@@ -244,37 +254,30 @@ void Pop3Server::List(int fd, const Maildrop &maildrop,
   }
 }
 
-void Pop3Server::Retr(int fd, const Maildrop &maildrop,
-                      const std::string &request) const {
-  const auto n = maildrop.NumMails(false);
-  const auto n_all = maildrop.NumMails(true);
-  auto arg = ExtractArgument(request);
-  trim(arg);
-
-  if (arg.empty()) {
-    ReplyErr(fd, "RETR needs one argument");
-    return;
-  }
-
-  LOG_F(INFO, "[%d] RETR %s", fd, arg.c_str());
-
-  const size_t i = std::stoi(arg);
-  if (i > n_all || i <= 0) {
-    ReplyErr(fd, "only " + std::to_string(n) + "/" + std::to_string(n_all) +
-                     "messages");
+void Pop3Server::Retr(int fd, const Maildrop &md, int arg) const {
+  const Mail &mail = md.GetMail(arg - 1);
+  if (!mail.deleted()) {
+    ReplyOk(fd, std::to_string(mail.Octets()) + " octets");
+    Send(fd, mail);
   } else {
-    const Mail &mail = maildrop.GetMail(i - 1);
-    if (!mail.deleted()) {
-      ReplyOk(fd, std::to_string(mail.Octets()) + " octets");
-      Send(fd, mail);
-    } else {
-      ReplyErr(fd, "message already deleted");
-    }
+    const auto arg_str = std::to_string(arg);
+    ReplyErr(fd, "message " + arg_str + " already deleted");
   }
 }
 
-bool Pop3Server::User(int fd, UserPtr &user, const std::string &request) const {
-  const auto username = ExtractArgument(request);
+void Pop3Server::Dele(int fd, const Maildrop &md, int arg) const {
+  const auto arg_str = std::to_string(arg);
+  const Mail &mail = md.GetMail(arg - 1);
+  if (!mail.deleted()) {
+    ReplyOk(fd, "message " + arg_str + " deleted");
+    mail.MarkDeleted();
+  } else {
+    ReplyErr(fd, "message " + arg_str + " already deleted");
+  }
+}
+
+bool Pop3Server::User(int fd, UserPtr &user, const std::string &req) const {
+  const auto username = ExtractArgument(req);
   user = GetUserByUsername(username);
 
   if (!user) {
@@ -295,40 +298,11 @@ void Pop3Server::Send(int fd, const Mail &mail) const {
   WriteLine(fd, ".");
 }
 
-void Pop3Server::Dele(int fd, const Maildrop &maildrop,
-                      const std::string &request) const {
-  const auto n = maildrop.NumMails(false);
-  const auto n_all = maildrop.NumMails(true);
-  auto arg = ExtractArgument(request);
-  trim(arg);
-
-  if (arg.empty()) {
-    ReplyErr(fd, "RETR needs one argument");
-    return;
-  }
-
-  LOG_F(INFO, "[%d] DELE %s", fd, arg.c_str());
-
-  const size_t i = std::stoi(arg);
-  if (i > n_all || i <= 0) {
-    ReplyErr(fd, "only " + std::to_string(n) + "/" + std::to_string(n_all) +
-                     "messages");
-  } else {
-    const Mail &mail = maildrop.GetMail(i - 1);
-    if (!mail.deleted()) {
-      ReplyOk(fd, "message " + std::to_string(i) + " deleted");
-      mail.MarkDeleted();
-    } else {
-      ReplyErr(fd, "message already deleted");
-    }
-  }
-}
-
-void Pop3Server::Uidl(int fd, const Maildrop &maildrop,
-                      const std::string &request) const {
-  const auto n = maildrop.NumMails(false);
-  const auto n_all = maildrop.NumMails(true);
-  auto arg = ExtractArgument(request);
+void Pop3Server::Uidl(int fd, const Maildrop &md,
+                      const std::string &req) const {
+  const auto n = md.NumMails(false);
+  const auto n_all = md.NumMails(true);
+  auto arg = ExtractArgument(req);
   trim(arg);
 
   if (arg.empty()) {
@@ -337,7 +311,7 @@ void Pop3Server::Uidl(int fd, const Maildrop &maildrop,
     ReplyOk(fd, "");
     // Output stat for each mail
     for (size_t i = 0; i < n_all; ++i) {
-      const auto &mail = maildrop.GetMail(i);
+      const auto &mail = md.GetMail(i);
       if (!mail.deleted()) {
         WriteLine(fd, std::to_string(i + 1) + " " + UniqueId(mail));
       }
@@ -351,7 +325,7 @@ void Pop3Server::Uidl(int fd, const Maildrop &maildrop,
       ReplyErr(fd, "no such message, only " + std::to_string(n) +
                        " messages in maildrop");
     } else {
-      const Mail &mail = maildrop.GetMail(i - 1);
+      const Mail &mail = md.GetMail(i - 1);
       if (!mail.deleted()) {
         ReplyOk(fd, std::to_string(i) + " " + UniqueId(mail));
       } else {
@@ -359,4 +333,28 @@ void Pop3Server::Uidl(int fd, const Maildrop &maildrop,
       }
     }
   }
+}
+
+void Pop3Server::IntArgCmd(int fd, const Maildrop &md, const std::string &req,
+                           const std::string &cmd, CmdHandle &handle) const {
+  const auto n = md.NumMails(false);
+  const auto n_all = md.NumMails(true);
+  auto arg = ExtractArgument(req);
+  trim(arg);
+
+  if (arg.empty()) {
+    ReplyErr(fd, cmd + " needs one argument");
+    return;
+  }
+
+  LOG_F(INFO, "[%d] %s %s", fd, cmd.c_str(), arg.c_str());
+
+  const size_t i = std::stoi(arg);
+  if (i > n_all || i <= 0) {
+    ReplyErr(fd, std::to_string(n) + "/" + std::to_string(n_all) + " messages");
+    return;
+  }
+
+  // Do work
+  handle(fd, md, i);
 }
