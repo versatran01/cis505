@@ -104,6 +104,7 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
       const auto password = ExtractArgument(request);
       if (user->password() == password) {
         if (user->mutex()->try_lock()) {
+          LOG_F(INFO, "[%d] lock acquired", fd);
 
           fsm.execute(Trigger::PASS_OK);
 
@@ -202,8 +203,13 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
             user->WriteMail(mail);
           }
         }
+        LOG_F(INFO, "[%d] Update mailbox", fd);
+
         // Release lock
         user->mutex()->unlock();
+        LOG_F(INFO, "[%d] lock released", fd);
+
+        reply_ok("POP3 server singing off");
       } else if (fsm.state() == State::User || fsm.state() == State::Pass) {
         const auto msg = "POP3 server signing off";
         reply_ok(msg);
