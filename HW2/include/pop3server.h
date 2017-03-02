@@ -23,7 +23,7 @@ private:
   void Pass(int fd) const;
   void Send(int fd, const Mail &mail) const;
   void Stat(int fd, const Maildrop &maildrop) const;
-  void List(int fd, const Maildrop &md, const std::string &req) const;
+  void List(int fd, const Maildrop &md, int arg) const;
   void Uidl(int fd, const Maildrop &md, const std::string &req) const;
   void Retr(int fd, const Maildrop &md, int arg) const;
   void Dele(int fd, const Maildrop &md, int arg) const;
