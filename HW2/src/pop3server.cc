@@ -172,7 +172,10 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
         continue;
       }
 
-      Uidl(fd, maildrop, request);
+      CmdHandle handle = [&](int fd, const Maildrop &md, int arg) {
+        Uidl(fd, md, arg);
+      };
+      OptIntArgCmd(fd, maildrop, request, command, handle);
     } else if (command == "QUIT") { // ===== QUIT =====
       if (fsm.state() == State::Trans) {
         // Update maildrop
@@ -245,6 +248,31 @@ void Pop3Server::List(int fd, const Maildrop &md, int arg) const {
   }
 }
 
+void Pop3Server::Uidl(int fd, const Maildrop &md, int arg) const {
+
+  if (arg < 0) {
+    const auto n_all = md.NumMails(true);
+    ReplyOk(fd, "");
+    // Output stat for each mail
+    for (size_t i = 0; i < n_all; ++i) {
+      const auto &mail = md.GetMail(i);
+      if (!mail.deleted()) {
+        WriteLine(fd, std::to_string(i + 1) + " " + UniqueId(mail));
+      }
+    }
+    WriteLine(fd, ".");
+    return;
+  }
+
+  const Mail &mail = md.GetMail(arg - 1);
+  if (!mail.deleted()) {
+    ReplyOk(fd, std::to_string(arg) + " " + UniqueId(mail));
+  } else {
+    const auto arg_str = std::to_string(arg);
+    ReplyErr(fd, "message " + arg_str + " already deleted");
+  }
+}
+
 void Pop3Server::Retr(int fd, const Maildrop &md, int arg) const {
   const Mail &mail = md.GetMail(arg - 1);
   if (!mail.deleted()) {
@@ -287,43 +315,6 @@ void Pop3Server::Send(int fd, const Mail &mail) const {
     WriteLine(fd, line);
   }
   WriteLine(fd, ".");
-}
-
-void Pop3Server::Uidl(int fd, const Maildrop &md,
-                      const std::string &req) const {
-  const auto n = md.NumMails(false);
-  const auto n_all = md.NumMails(true);
-  auto arg = ExtractArgument(req);
-  trim(arg);
-
-  if (arg.empty()) {
-    LOG_F(INFO, "[%d] UIDL no arg", fd);
-
-    ReplyOk(fd, "");
-    // Output stat for each mail
-    for (size_t i = 0; i < n_all; ++i) {
-      const auto &mail = md.GetMail(i);
-      if (!mail.deleted()) {
-        WriteLine(fd, std::to_string(i + 1) + " " + UniqueId(mail));
-      }
-    }
-    WriteLine(fd, ".");
-  } else {
-    LOG_F(INFO, "[%d] LIST %s", fd, arg.c_str());
-
-    const size_t i = std::stoi(arg);
-    if (i > n_all || i <= 0) {
-      ReplyErr(fd, "no such message, only " + std::to_string(n) +
-                       " messages in maildrop");
-    } else {
-      const Mail &mail = md.GetMail(i - 1);
-      if (!mail.deleted()) {
-        ReplyOk(fd, std::to_string(i) + " " + UniqueId(mail));
-      } else {
-        ReplyErr(fd, "message already deleted");
-      }
-    }
-  }
 }
 
 void Pop3Server::IntArgCmd(int fd, const Maildrop &md, const std::string &req,
