@@ -23,13 +23,28 @@ public:
   Server(const Server &) = delete;
   Server &operator=(const Server &) = delete;
 
+  /**
+   * @brief Setup socket connection
+   */
   void Setup();
+
+  /**
+   * @brief Run main server loop
+   */
   void Run();
 
   bool WriteLine(int fd, const std::string &line) const;
   bool ReadLine(int fd, std::string &line) const;
 
+  /**
+   * @brief Worker
+   * @param sock_ptr
+   */
   virtual void Work(SocketPtr sock_ptr) = 0;
+
+  /**
+   * @brief Close connection and clean up
+   */
   virtual void Stop();
 
 protected:

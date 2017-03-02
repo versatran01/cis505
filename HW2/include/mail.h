@@ -7,18 +7,22 @@
 
 using TimePointSys = std::chrono::time_point<std::chrono::system_clock>;
 
+/**
+ * @brief The Mail class, a single mail
+ */
 class Mail {
 public:
   Mail() = default;
   explicit Mail(const std::string &sender);
 
-  // Getters
+  /// Getters
   const std::string &sender() const { return sender_; }
   const std::vector<std::string> &recipients() const { return recipients_; }
   const TimePointSys &time() const { return time_; }
   const std::vector<std::string> &lines() const { return lines_; }
   bool deleted() const { return deleted_; }
 
+  /// Setters
   void set_sender(const std::string &sender) { sender_ = sender; }
   void set_time(const TimePointSys &time) { time_ = time; }
 
@@ -30,11 +34,29 @@ public:
   void MarkDeleted() const { deleted_ = true; }
   void MarkUndeleted() const { deleted_ = false; }
 
+  /**
+   * @brief Check if recipient already exists
+   * @param mailaddr, recipient's mail address
+   * @return True if exists
+   */
   bool RecipientExists(const std::string &mailaddr) const;
   void Clear();
+
+  /**
+   * @brief Check if mail is empty
+   * @return True if empty
+   */
   bool Empty() const;
+
+  /**
+   * @brief Timestamp this mail with the current time
+   */
   void Stamp() { time_ = std::chrono::system_clock::now(); }
 
+  /**
+   * @brief TimerStr
+   * @return time as string
+   */
   std::string TimeStr() const;
   size_t Octets() const;
   std::string Data() const;
