@@ -19,3 +19,9 @@ size_t Maildrop::NumMails(bool count_deleted) const {
   }
   return n;
 }
+
+void Maildrop::Reset() const {
+  for (const Mail &mail : mails_) {
+    mail.MarkUndeleted();
+  }
+}

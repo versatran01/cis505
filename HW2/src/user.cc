@@ -11,12 +11,6 @@ User::User(const std::string &mailbox, const std::string &username)
       mutex_(std::make_shared<std::mutex>()) {}
 
 void User::WriteMail(const Mail &mail) const {
-  // Double check if user exists
-  if (!mail.RecipientExists(mailaddr()))
-    return;
-
-  std::lock_guard<std::mutex> guard(*mutex_);
-
   std::ofstream mbox_file;
   mbox_file.open(mailbox_, std::ios::out | std::ios::app);
   mbox_file << "From <" << mail.sender() << "> " << mail.TimeStr();
@@ -64,4 +58,10 @@ Maildrop User::ReadMaildrop() const {
 
   maildrop.AddMail(mail);
   return maildrop;
+}
+
+void User::ClearMailbox() const {
+  std::ofstream mbox_file;
+  mbox_file.open(mailbox_, std::ios::out | std::ios::trunc);
+  mbox_file.close();
 }

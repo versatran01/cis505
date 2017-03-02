@@ -262,6 +262,7 @@ void SmtpServer::SendMail(const Mail &mail, int fd) const {
       continue;
     }
 
+    std::lock_guard<std::mutex> guard(*(user->mutex()));
     user->WriteMail(mail);
     LOG_F(INFO, "[%d] Finish sending to recipient, mailaddr={%s}", fd,
           recipient.c_str());

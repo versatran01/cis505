@@ -196,7 +196,14 @@ void Pop3Server::Work(SocketPtr sock_ptr) {
     } else if (command == "QUIT") { // ===== QUIT =====
       if (fsm.state() == State::Trans) {
         // Update maildrop
-
+        user->ClearMailbox();
+        for (const Mail &mail : maildrop.mails()) {
+          if (!mail.deleted()) {
+            user->WriteMail(mail);
+          }
+        }
+        // Release lock
+        user->mutex()->unlock();
       } else if (fsm.state() == State::User || fsm.state() == State::Pass) {
         const auto msg = "POP3 server signing off";
         reply_ok(msg);
@@ -236,9 +243,7 @@ void Pop3Server::Stat(int fd, const Maildrop &md) const {
 }
 
 void Pop3Server::Rset(int fd, const Maildrop &md) const {
-  for (const Mail &mail : md.mails()) {
-    mail.MarkUndeleted();
-  }
+  md.Reset();
   const auto n = md.NumMails();
   const auto octets = md.TotalOctets();
   const auto msg = std::to_string(n) + " " + std::to_string(octets);

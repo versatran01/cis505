@@ -3,6 +3,9 @@
 
 #include "mail.h"
 
+/**
+ * @brief The Maildrop class
+ */
 class Maildrop {
 public:
   Maildrop() = default;
@@ -18,7 +21,7 @@ public:
   const Mail &GetMail(size_t i) const { return mails_[i]; }
   Mail &GetMail(size_t i) { return mails_[i]; }
 
-  void Update();
+  void Reset() const; // const because only modify mail delete
 
 private:
   std::vector<Mail> mails_;

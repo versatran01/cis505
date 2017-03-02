@@ -19,11 +19,11 @@ public:
   const std::string &username() const { return username_; }
   const std::string &password() const { return password_; }
   const std::string &mailaddr() const { return mailaddr_; }
-  const MutexPtr &mutex() const { return mutex_; }
+  const MutexPtr mutex() const { return mutex_; }
 
+  void ClearMailbox() const;
   void WriteMail(const Mail &mail) const;
   Maildrop ReadMaildrop() const;
-  void WriteMaildrop(const Maildrop &maildrop) const;
 
 private:
   std::string mailbox_;
