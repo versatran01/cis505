@@ -8,7 +8,7 @@ Mail::Mail(const std::string &sender) : sender_(sender) {}
 void Mail::Clear() {
   sender_.clear();
   recipients_.clear();
-  data_.clear();
+  lines_.clear();
 }
 
 void Mail::SetTimeFromString(const std::string &time_str) {
@@ -24,7 +24,7 @@ bool Mail::RecipientExists(const std::string &mailaddr) const {
 }
 
 bool Mail::Empty() const {
-  return sender_.empty() && recipients_.empty() && data_.empty();
+  return sender_.empty() && recipients_.empty() && lines_.empty();
 }
 
 std::string Mail::TimeStr() const {
@@ -34,8 +34,16 @@ std::string Mail::TimeStr() const {
 
 size_t Mail::Octets() const {
   size_t n = 0;
-  for (const auto &line : data_) {
+  for (const auto &line : lines_) {
     n += (line.size() + 2);
   }
   return n;
+}
+
+std::string Mail::Data() const {
+  std::string data;
+  for (const auto &line : lines_) {
+    data += line;
+  }
+  return data;
 }

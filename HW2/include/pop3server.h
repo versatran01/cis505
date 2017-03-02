@@ -16,10 +16,14 @@ public:
   void ReplyErr(int fd, const std::string &message) const;
 
 private:
-  void Stat(int fd, const Maildrop &maildrop) const;
-  void List(int fd, const Maildrop &maildrop, const std::string &request) const;
   bool User(int fd, UserPtr &user, const std::string &request) const;
   void Pass(int fd) const;
+  void Send(int fd, const Mail &mail) const;
+  void Stat(int fd, const Maildrop &maildrop) const;
+  void List(int fd, const Maildrop &maildrop, const std::string &request) const;
+  void Retr(int fd, const Maildrop &maildrop, const std::string &request) const;
+  void Dele(int fd, const Maildrop &maildrop, const std::string &request) const;
+  void Uidl(int fd, const Maildrop &maildrop, const std::string &request) const;
 };
 
 #endif // POP3SERVER_H

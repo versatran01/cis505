@@ -13,9 +13,11 @@ public:
   void Clear() { mails_.clear(); }
 
   size_t TotalOctets() const;
-  size_t NumMails() const;
+  size_t NumMails(bool count_deleted = false) const;
 
   const Mail &GetMail(size_t i) const { return mails_[i]; }
+
+  void Update();
 
 private:
   std::vector<Mail> mails_;

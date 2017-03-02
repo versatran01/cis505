@@ -20,7 +20,7 @@ void User::WriteMail(const Mail &mail) const {
   std::ofstream mbox_file;
   mbox_file.open(mailbox_, std::ios::out | std::ios::app);
   mbox_file << "From <" << mail.sender() << "> " << mail.TimeStr();
-  for (const auto &line : mail.data()) {
+  for (const auto &line : mail.lines()) {
     mbox_file << line << "\n";
   }
   mbox_file.close();

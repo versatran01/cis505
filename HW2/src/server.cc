@@ -24,7 +24,7 @@ std::string ExtractCommand(const std::string &request, size_t len) {
   return command;
 }
 
-std::string ExtractArguments(const std::string &request, size_t len) {
+std::string ExtractArgument(const std::string &request, size_t len) {
   // 1 is the extra space
   if (request.size() <= len + 1)
     return {};
@@ -32,11 +32,11 @@ std::string ExtractArguments(const std::string &request, size_t len) {
 }
 
 void Server::RemoveClosedSockets() {
-  std::lock_guard<std::mutex> guard(open_sockects_mutex_);
+  std::lock_guard<std::mutex> guard(sockets_mutex_);
   auto is_socket_closed = [](const auto &fd) { return *fd < 0; };
-  open_sockets_.erase(std::remove_if(open_sockets_.begin(), open_sockets_.end(),
-                                     is_socket_closed),
-                      open_sockets_.end());
+  sockets_.erase(
+      std::remove_if(sockets_.begin(), sockets_.end(), is_socket_closed),
+      sockets_.end());
 }
 
 bool Server::WriteLine(int fd, const std::string &line) const {
@@ -230,7 +230,7 @@ void Server::Run() {
       fprintf(stderr, "[%d] New connection\n", connect_fd);
 
     auto connect_fd_ptr = std::make_shared<int>(connect_fd);
-    open_sockets_.push_back(connect_fd_ptr);
+    sockets_.push_back(connect_fd_ptr);
 
     // Create a thread to handle connection and detach
     std::thread worker([&] { Work(connect_fd_ptr); });
@@ -238,7 +238,7 @@ void Server::Run() {
 
     // Clean closed sockets
     RemoveClosedSockets();
-    LOG_F(INFO, "Remaining open connections, num={%zu}", open_sockets_.size());
+    LOG_F(INFO, "Remaining open connections, num={%zu}", sockets_.size());
   }
 }
 
@@ -247,12 +247,12 @@ void Server::Stop() {
   close(listen_fd_);
   LOG_F(INFO, "Close listen socket, fd={%d}, sig={SIGINT}", listen_fd_);
 
-  LOG_F(INFO, "Open sockets, num_fd={%zu}", open_sockets_.size());
+  LOG_F(INFO, "Open sockets, num_fd={%zu}", sockets_.size());
   RemoveClosedSockets();
-  LOG_F(INFO, "Remove closed sockets, num_fd={%zu}", open_sockets_.size());
+  LOG_F(INFO, "Remove closed sockets, num_fd={%zu}", sockets_.size());
 
   const auto response = "-ERR Server shutting down";
-  for (const auto fd_ptr : open_sockets_) {
+  for (const auto fd_ptr : sockets_) {
     if (*fd_ptr < 0)
       continue;
     WriteLine(*fd_ptr, response);

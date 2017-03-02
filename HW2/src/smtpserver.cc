@@ -114,7 +114,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
       }
 
       // Try match "HELO <domain>"
-      const auto domain = ExtractArguments(request);
+      const auto domain = ExtractArgument(request);
       if (domain.empty()) {
         LOG_F(WARNING, "[%d] Match HELO failed", fd);
         ReplyCode(fd, 501);
@@ -242,7 +242,7 @@ void SmtpServer::Work(SocketPtr sock_ptr) {
         fprintf(stderr, "[%d] Connection closed\n", fd);
 
       // Set socket fd to -1
-      std::lock_guard<std::mutex> guard(open_sockects_mutex_);
+      std::lock_guard<std::mutex> guard(sockets_mutex_);
       *sock_ptr = -1;
       return;
     } else {

@@ -46,7 +46,7 @@ void EchoServer::Work(SocketPtr sock_ptr) {
       if (verbose_)
         fprintf(stderr, "[%d] Connection closed\n", fd);
 
-      std::lock_guard<std::mutex> guard(open_sockects_mutex_);
+      std::lock_guard<std::mutex> guard(sockets_mutex_);
       *sock_ptr = -1;
       return;
     } else {

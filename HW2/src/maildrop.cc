@@ -10,10 +10,10 @@ size_t Maildrop::TotalOctets() const {
   return n;
 }
 
-size_t Maildrop::NumMails() const {
+size_t Maildrop::NumMails(bool count_deleted) const {
   size_t n = 0;
   for (const Mail &mail : mails_) {
-    if (!mail.deleted()) {
+    if (count_deleted || !mail.deleted()) {
       ++n;
     }
   }

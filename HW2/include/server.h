@@ -7,7 +7,7 @@
 #include <vector>
 
 std::string ExtractCommand(const std::string &request, size_t len = 4);
-std::string ExtractArguments(const std::string &request, size_t len = 4);
+std::string ExtractArgument(const std::string &request, size_t len = 4);
 
 typedef void (*sa_handler_ptr)(int);
 void SetSigintHandler(sa_handler_ptr handler);
@@ -41,8 +41,8 @@ protected:
   void RemoveClosedSockets();
 
   int listen_fd_;
-  std::mutex open_sockects_mutex_;
-  std::vector<SocketPtr> open_sockets_;
+  std::mutex sockets_mutex_;
+  std::vector<SocketPtr> sockets_;
 
 private:
   int port_no_;
