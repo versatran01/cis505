@@ -21,6 +21,9 @@ public:
   const Mail &GetMail(size_t i) const { return mails_[i]; }
   Mail &GetMail(size_t i) { return mails_[i]; }
 
+  /**
+   * @brief Mark all mails as undeleted
+   */
   void Reset() const; // const because only modify mail delete
 
 private:

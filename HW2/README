@@ -24,3 +24,9 @@ Did you collaborate with anyone on this assignment?
 Extra notes:
   For logging, I used loguru, which is a single header logging
   lib for c++. Again for testing, I used catch.
+
+  For state machine, I used cppfsm.
+
+  Use -l option for logging and -v for verbose.
+
+

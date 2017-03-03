@@ -31,6 +31,7 @@ public:
     recipients_.push_back(recipient);
   }
   void AddLine(const std::string &line) { lines_.push_back(line); }
+
   void MarkDeleted() const { deleted_ = true; }
   void MarkUndeleted() const { deleted_ = false; }
 
@@ -58,7 +59,15 @@ public:
    * @return time as string
    */
   std::string TimeStr() const;
+
+  /**
+   * @brief Octets of the mail data
+   */
   size_t Octets() const;
+
+  /**
+   * @brief Mail content in one string
+   */
   std::string Data() const;
 
 private:
