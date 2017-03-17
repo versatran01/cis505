@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <ctime>
 
 #define panic(a...) do { fprintf(stderr, a); fprintf(stderr, "\n"); exit(1); } while (0)
 #define logVerbose(a...) do { if (verbose) { struct timeval tv; gettimeofday(&tv, NULL); printf("TST %d.%03d ", (int)tv.tv_sec, (int)(tv.tv_usec/1000)); printf(a); printf("\n"); } } while(0)
