@@ -5,7 +5,8 @@ INC_DIR = include
 SRC_DIR = src
 OBJ_DIR = obj
 
-CFLAGS = -std=c++14 -I$(INC_DIR) -Wall -g
+CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -Wall -g
+LFLAGS = -ldl
 
 _DEPS = loguru.hpp
 DEPS = $(pathsubst %,$(INC_DIR)/%,$(_DEPS))
@@ -18,13 +19,13 @@ _obj:
 	mkdir -p $(OBJ_DIR)
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS) _obj
-	$(CC) $(CFLAGS) $< -c -o $@
+	$(CC) $(CFLAGS) $< -c -o $@ 
 
 chatserver: $(OBJ_DIR)/chatserver.o
-	$(CC) $(CLFAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
 chatclient: $(OBJ_DIR)/chatclient.o
-	$(CC) $(CLFAGS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
 pack:
 	rm -f submit-hw3.zip
