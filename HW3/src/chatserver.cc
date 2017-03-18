@@ -1,10 +1,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
   if (argc < 2) {
-    fprintf(stderr, "*** Author: Your name here (SEASlogin here)\n");
+    fprintf(stderr, "*** Author: Chao Qu (quchao)\n");
     exit(1);
   }
 
