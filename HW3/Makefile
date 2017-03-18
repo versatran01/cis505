@@ -1,15 +1,30 @@
 TARGETS = chatserver chatclient
+CC = g++
 
+INC_DIR = include
+SRC_DIR = src
+OBJ_DIR = obj
+
+CFLAGS = -std=c++14 -I$(INC_DIR) -Wall -g
+
+_DEPS = loguru.hpp
+DEPS = $(pathsubst %,$(INC_DIR)/%,$(_DEPS))
+
+
+.PHONY: all
 all: $(TARGETS)
 
-%.o: %.cc
-	g++ $^ -c -o $@
+_obj:
+	mkdir -p $(OBJ_DIR)
 
-chatserver: chatserver.o
-	g++ $^ -o $@
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS) _obj
+	$(CC) $(CFLAGS) $< -c -o $@
 
-chatclient: chatclient.o
-	g++ $^ -o $@
+chatserver: $(OBJ_DIR)/chatserver.o
+	$(CC) $(CLFAGS) $^ -o $@
+
+chatclient: $(OBJ_DIR)/chatclient.o
+	$(CC) $(CLFAGS) $^ -o $@
 
 pack:
 	rm -f submit-hw3.zip
