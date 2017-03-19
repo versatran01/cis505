@@ -1,4 +1,4 @@
-TARGETS = chatserver chatclient
+TARGETS = chatserver chatclient udpechoserver
 CC = g++
 
 INC_DIR = include
@@ -25,6 +25,9 @@ chatserver: $(OBJ_DIR)/chatserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
 chatclient: $(OBJ_DIR)/chatclient.o
+	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
+
+udpechoserver: $(OBJ_DIR)/udpechoserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
 pack:

@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include <iostream>
+#include <mutex>
 #include <string>
 
 #include "cmdparser.hpp"
@@ -20,11 +22,12 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
+  // Parse command line argument
   cli::Parser parser(argc, argv);
   ConfigureParser(parser);
   parser.run_and_exit_if_error();
 
-  // Setup log
+  // Setup logging
   if (parser.get<bool>("l")) {
     loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
     loguru::add_file("chatclient.log", loguru::Truncate, loguru::Verbosity_MAX);
