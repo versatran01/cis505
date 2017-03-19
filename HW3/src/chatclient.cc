@@ -1,5 +1,7 @@
+#include <arpa/inet.h>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include <iostream>
 #include <mutex>
@@ -32,6 +34,26 @@ int main(int argc, char *argv[]) {
     loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
     loguru::add_file("chatclient.log", loguru::Truncate, loguru::Verbosity_MAX);
   }
+
+  // Setup connection
+  int sock = socket(AF_INET, SOCK_DGRAM, 0);
+  struct sockaddr_in dest;
+  bzero(&dest, sizeof(dest));
+  dest.sin_family = AF_INET;
+  dest.sin_port = htons(4711);
+  inet_pton(AF_INET, "127.0.0.1", &(dest.sin_addr));
+  sendto(sock, "abc", strlen("abc"), 0, (struct sockaddr *)&dest, sizeof(dest));
+
+  char buf[100];
+  struct sockaddr_in src;
+  socklen_t srcSize = sizeof(src);
+  int rlen =
+      recvfrom(sock, buf, sizeof(buf), 0, (struct sockaddr *)&src, &srcSize);
+  buf[rlen] = 0;
+  printf("Echo: [%s] (%d byptes) from %s\n", buf, rlen,
+         inet_ntoa(src.sin_addr));
+
+  close(sock);
 
   return 0;
 }
