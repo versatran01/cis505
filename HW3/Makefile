@@ -5,7 +5,7 @@ INC_DIR = include
 SRC_DIR = src
 OBJ_DIR = obj
 
-CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -Wall -g
+CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -I$(INC_DIR)/gsl -Wall -g
 LFLAGS = -ldl
 
 _DEPS = loguru.hpp
