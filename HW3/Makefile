@@ -9,7 +9,11 @@ CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -I$(INC_DIR)/gsl -Wall -g
 LFLAGS = -ldl
 
 _DEPS = loguru.hpp
-DEPS = $(pathsubst %,$(INC_DIR)/%,$(_DEPS))
+DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
+
+_OBJS = string_algorithms.o
+OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
+
 
 
 .PHONY: all
@@ -21,13 +25,13 @@ _obj:
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS) _obj
 	$(CC) $(CFLAGS) $< -c -o $@ 
 
-chatserver: $(OBJ_DIR)/chatserver.o
+chatserver: $(OBJS) $(OBJ_DIR)/chatserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
-chatclient: $(OBJ_DIR)/chatclient.o
+chatclient: $(OBJS) $(OBJ_DIR)/chatclient.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
-udpechoserver: $(OBJ_DIR)/udpechoserver.o
+udpechoserver: $(OBJS) $(OBJ_DIR)/udpechoserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
 pack:
