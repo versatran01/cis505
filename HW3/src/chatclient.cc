@@ -9,11 +9,14 @@
 #include <mutex>
 #include <regex>
 #include <string>
+#include <tuple>
 
 #include "cmdparser.hpp"
 #include "rang.hpp"
 #define LOGURU_IMPLEMENTATION 1
 #include "loguru.hpp"
+
+#include "chatutils.hpp"
 
 static constexpr int kMaxEvents = 1;
 static constexpr int kBufferSize = 1024;
@@ -45,18 +48,15 @@ int main(int argc, char *argv[]) {
   // Parse server address and port
   const auto addr_port = parser.get<std::string>("");
   LOG_F(INFO, "argv: %s", addr_port.c_str());
-  std::string pattern =
-      "^([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]+)\\:([0-9]{1,5})$";
-  std::regex addr_port_regex(pattern);
-  std::smatch results;
-  if (!std::regex_search(addr_port, results, addr_port_regex)) {
-    LOG_F(ERROR, "Invalid address and port.");
+  std::string addr;
+  int port;
+  try {
+    std::tie(addr, port) = ParseAddrAndPort(addr_port);
+    LOG_F(INFO, "addr: %s, port: %d", addr.c_str(), port);
+  } catch (const std::invalid_argument &err) {
+    LOG_F(ERROR, err.what());
     return EXIT_FAILURE;
   }
-
-  const auto addr = results.str(1);
-  const auto port = std::atoi(results.str(2).c_str());
-  LOG_F(INFO, "addr: %s, port: %d", addr.c_str(), port);
 
   // Setup connection
   int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);

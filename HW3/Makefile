@@ -11,8 +11,8 @@ LFLAGS = -ldl -lstdc++fs
 _DEPS = loguru.hpp
 DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
 
-# _OBJS = string_algorithms.o lpi.o
-# OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
+ _OBJS = chatutils.o
+OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
 
 
 
@@ -28,7 +28,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS) _obj
 chatserver: $(OBJ_DIR)/chatserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
-chatclient: $(OBJ_DIR)/chatclient.o
+chatclient: $(OBJS) $(OBJ_DIR)/chatclient.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
 udpechoserver: $(OBJS) $(OBJ_DIR)/udpechoserver.o
