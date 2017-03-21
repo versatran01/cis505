@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
               addr.c_str(), recvfrom_addr.c_str());
       }
       if (recvfrom_port != port) {
-        LOG_F(WARNING, "[C%d] send_port={%s}, recv_addr={%s}", sock_fd, port,
+        LOG_F(WARNING, "[C%d] send_port={%d}, recv_addr={%d}", sock_fd, port,
               recvfrom_port);
       }
 
@@ -177,9 +177,6 @@ int main(int argc, char *argv[]) {
       LOG_F(FATAL, "[C%d] This should not happen", sock_fd);
     }
   }
-
-  close(epoll_fd);
-  close(sock_fd);
 
   return EXIT_SUCCESS;
 }
