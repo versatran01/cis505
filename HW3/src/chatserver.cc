@@ -61,6 +61,7 @@ int main(int argc, char *argv[]) {
   LOG_F(INFO, "cwd, path={%s}", cwd.c_str());
   fs::path config_file = cwd / config;
 
+  // TODO: every server need to know every other server so need to refactor
   // Read server addresses
   std::string line;
   std::fstream config_file_stream(config_file);
