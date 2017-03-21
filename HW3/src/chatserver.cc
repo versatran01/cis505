@@ -90,7 +90,7 @@ int main(int argc, char *argv[]) {
   LOG_F(INFO, "[S%d] forward={%s}, bind={%s}", index, forward_addr_port.c_str(),
         bind_addr_port.c_str());
 
-  // Extract address and port
+  // Extract forward address and port
   std::string pattern =
       "^([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]+)\\:([0-9]{1,5})$";
   std::regex addr_port_regex(pattern);
@@ -105,6 +105,7 @@ int main(int argc, char *argv[]) {
   LOG_F(INFO, "[S%d] forward addr={%s}, port={%d}", index, forward_addr.c_str(),
         forward_port);
 
+  // Extract bind address and port
   if (!std::regex_search(bind_addr_port, results, addr_port_regex)) {
     LOG_F(ERROR, "Invalid bind address and port.");
     return EXIT_FAILURE;

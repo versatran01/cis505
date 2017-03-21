@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <netdb.h>
 #include <sys/epoll.h>
 
 #include <iostream>
@@ -142,8 +143,22 @@ int main(int argc, char *argv[]) {
 
       // Null terminate
       buffer[nrecv] = 0;
-      LOG_F(INFO, "[C%d] Read from socket, str={%s}, n={%d}, server={%s}",
-            sock_fd, buffer, nrecv, inet_ntoa(src_addr.sin_addr));
+      LOG_F(INFO, "[C%d] Recv from socket, str={%s}, n={%d}", sock_fd, buffer,
+            nrecv);
+      std::string recvfrom_addr(inet_ntoa(src_addr.sin_addr));
+      int recvfrom_port = ntohs(src_addr.sin_port);
+      LOG_F(INFO, "[C%d] Recv server, addr={%s}, port={%d}", sock_fd,
+            recvfrom_addr.c_str(), recvfrom_port);
+
+      // Check whether we received from the same server
+      if (recvfrom_addr != addr) {
+        LOG_F(WARNING, "[C%d] send_addr={%s}, recv_addr={%s}", sock_fd,
+              addr.c_str(), recvfrom_addr.c_str());
+      }
+      if (recvfrom_port != port) {
+        LOG_F(WARNING, "[C%d] send_port={%s}, recv_addr={%s}", sock_fd, port,
+              recvfrom_port);
+      }
 
       // Extract first token
       std::string msg(buffer, nrecv);
