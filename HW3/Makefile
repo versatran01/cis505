@@ -5,14 +5,14 @@ INC_DIR = include
 SRC_DIR = src
 OBJ_DIR = obj
 
-CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -I$(INC_DIR)/gsl -Wall -g
-LFLAGS = -ldl
+CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -Wall -g
+LFLAGS = -ldl -lstdc++fs
 
 _DEPS = loguru.hpp
 DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
 
-_OBJS = string_algorithms.o
-OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
+# _OBJS = string_algorithms.o lpi.o
+# OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
 
 
 
@@ -25,10 +25,10 @@ _obj:
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS) _obj
 	$(CC) $(CFLAGS) $< -c -o $@ 
 
-chatserver: $(OBJS) $(OBJ_DIR)/chatserver.o
+chatserver: $(OBJ_DIR)/chatserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
-chatclient: $(OBJS) $(OBJ_DIR)/chatclient.o
+chatclient: $(OBJ_DIR)/chatclient.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
 udpechoserver: $(OBJS) $(OBJ_DIR)/udpechoserver.o

@@ -14,8 +14,6 @@
 #define LOGURU_IMPLEMENTATION 1
 #include "loguru.hpp"
 
-#include "string_algorithms.h"
-
 static constexpr int kMaxEvents = 1;
 static constexpr int kBufferSize = 1024;
 
@@ -50,8 +48,10 @@ int main(int argc, char *argv[]) {
       "^([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]+)\\:([0-9]{1,5})$";
   std::regex addr_port_regex(pattern);
   std::smatch results;
-  if (!std::regex_search(addr_port, results, addr_port_regex))
-    LOG_F(FATAL, "Invalid address and port.");
+  if (!std::regex_search(addr_port, results, addr_port_regex)) {
+    LOG_F(ERROR, "Invalid address and port.");
+    return EXIT_FAILURE;
+  }
 
   const auto addr = results.str(1);
   const auto port = std::atoi(results.str(2).c_str());
@@ -72,13 +72,15 @@ int main(int argc, char *argv[]) {
   event.events = EPOLLIN | EPOLLPRI | EPOLLERR;
   event.data.fd = STDIN_FILENO;
   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, STDIN_FILENO, &event) != 0) {
-    LOG_F(FATAL, "Failed to add STDIN to epoll");
+    LOG_F(ERROR, "Failed to add STDIN to epoll");
+    return EXIT_FAILURE;
   }
 
   // add socket
   event.data.fd = sock_fd;
   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock_fd, &event) != 0) {
-    LOG_F(FATAL, "Failed to add socket to epoll");
+    LOG_F(ERROR, "Failed to add socket to epoll");
+    return EXIT_FAILURE;
   }
 
   // Setup for reading
@@ -145,7 +147,7 @@ int main(int argc, char *argv[]) {
 
       // Extract first token
       std::string msg(buffer, nrecv);
-      const auto token = to_upper_copy(msg.substr(0, msg.find(' ')));
+      const auto token = msg.substr(0, msg.find(' '));
 
       // Print to stdin, with RANG!!!
       if (token == "+OK") {
@@ -164,5 +166,5 @@ int main(int argc, char *argv[]) {
   close(epoll_fd);
   close(sock_fd);
 
-  return 0;
+  return EXIT_SUCCESS;
 }
