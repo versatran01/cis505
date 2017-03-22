@@ -1,4 +1,4 @@
-#include "string_algorithms.h"
+#include "string_algorithms.hpp"
 
 #include <algorithm>
 #include <locale>

@@ -1,6 +1,5 @@
 #include <cstdio>
 #include <cstdlib>
-#include <experimental/filesystem>
 #include <fstream>
 #include <iostream>
 #include <regex>
@@ -8,8 +7,9 @@
 #include "cmdparser.hpp"
 #define LOGURU_IMPLEMENTATION 1
 #include "loguru.hpp"
+#include "rang.hpp"
 
-namespace fs = std::experimental::filesystem;
+#include "chatutils.hpp"
 
 void ConfigureParser(cli::Parser &parser) {
   parser.set_required<std::vector<std::string>>(
@@ -56,65 +56,14 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  // Check config file
-  fs::path cwd(fs::current_path());
-  LOG_F(INFO, "cwd, path={%s}", cwd.c_str());
-  fs::path config_file = cwd / config;
-
-  // TODO: every server need to know every other server so need to refactor
-  // Read server addresses
-  std::string line;
-  std::fstream config_file_stream(config_file);
-  for (int i = 1; i < index; ++i) {
-    config_file_stream.ignore(std::numeric_limits<std::streamsize>::max(),
-                              '\n');
-  }
-  config_file_stream >> line;
-  if (line.empty()) {
-    LOG_F(ERROR, "[S%d] failed to load server addresses", index);
+  std::vector<ServerAddrPort> servers;
+  try {
+    servers = ParseConfig(config);
+  } catch (const std::invalid_argument &err) {
+    LOG_F(ERROR, err.what());
     return EXIT_FAILURE;
   }
-  LOG_F(INFO, "[S%d] config={%s}", index, line.c_str());
-
-  // Parse server addresses
-  // Figure out whether we have a single address or two
-  std::string forward_addr_port, bind_addr_port;
-  const auto delim_index = line.find(',');
-  if (delim_index == std::string::npos) {
-    // Single address
-    forward_addr_port = line;
-    bind_addr_port = line;
-  } else {
-    forward_addr_port = line.substr(0, delim_index);
-    bind_addr_port = line.substr(delim_index + 1);
-  }
-  LOG_F(INFO, "[S%d] forward={%s}, bind={%s}", index, forward_addr_port.c_str(),
-        bind_addr_port.c_str());
-
-  // Extract forward address and port
-  std::string pattern =
-      "^([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]+)\\:([0-9]{1,5})$";
-  std::regex addr_port_regex(pattern);
-  std::smatch results;
-  if (!std::regex_search(forward_addr_port, results, addr_port_regex)) {
-    LOG_F(ERROR, "Invalid forward address and port.");
-    return EXIT_FAILURE;
-  }
-
-  const auto forward_addr = results.str(1);
-  const auto forward_port = std::atoi(results.str(2).c_str());
-  LOG_F(INFO, "[S%d] forward addr={%s}, port={%d}", index, forward_addr.c_str(),
-        forward_port);
-
-  // Extract bind address and port
-  if (!std::regex_search(bind_addr_port, results, addr_port_regex)) {
-    LOG_F(ERROR, "Invalid bind address and port.");
-    return EXIT_FAILURE;
-  }
-  const auto bind_addr = results.str(1);
-  const auto bind_port = std::atoi(results.str(2).c_str());
-  LOG_F(INFO, "[S%d] bind addr={%s}, port={%d}", index, bind_addr.c_str(),
-        bind_port);
+  LOG_F(INFO, "Total servers, n={%zu}", servers.size());
 
   return EXIT_SUCCESS;
 }

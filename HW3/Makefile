@@ -8,10 +8,10 @@ OBJ_DIR = obj
 CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -Wall -g
 LFLAGS = -ldl -lstdc++fs
 
-_DEPS = loguru.hpp
+_DEPS = loguru.hpp rang.hpp string_algorithms.hpp chatutils.hpp
 DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
 
- _OBJS = chatutils.o
+ _OBJS = string_algorithms.o chatutils.o 
 OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
 
 
@@ -25,13 +25,13 @@ _obj:
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS) _obj
 	$(CC) $(CFLAGS) $< -c -o $@ 
 
-chatserver: $(OBJ_DIR)/chatserver.o
+chatserver: $(OBJS) $(OBJ_DIR)/chatserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
 chatclient: $(OBJS) $(OBJ_DIR)/chatclient.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
-udpechoserver: $(OBJS) $(OBJ_DIR)/udpechoserver.o
+udpechoserver: $(OBJ_DIR)/udpechoserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
 pack:

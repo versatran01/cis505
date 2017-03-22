@@ -48,11 +48,10 @@ int main(int argc, char *argv[]) {
   // Parse server address and port
   const auto addr_port = parser.get<std::string>("");
   LOG_F(INFO, "argv: %s", addr_port.c_str());
-  std::string addr;
-  int port;
+  AddrPort server;
   try {
-    std::tie(addr, port) = ParseAddrAndPort(addr_port);
-    LOG_F(INFO, "addr: %s, port: %d", addr.c_str(), port);
+    server = ParseAddrPort(addr_port);
+    LOG_F(INFO, "addr: %s, port: %d", server.addr().c_str(), server.port());
   } catch (const std::invalid_argument &err) {
     LOG_F(ERROR, err.what());
     return EXIT_FAILURE;
@@ -63,8 +62,8 @@ int main(int argc, char *argv[]) {
   struct sockaddr_in server_addr;
   bzero(&server_addr, sizeof(server_addr));
   server_addr.sin_family = AF_INET;
-  server_addr.sin_port = htons(port);
-  inet_pton(AF_INET, addr.c_str(), &(server_addr.sin_addr));
+  server_addr.sin_port = htons(server.port());
+  inet_pton(AF_INET, server.addr().c_str(), &(server_addr.sin_addr));
 
   // Setup epoll
   int epoll_fd = epoll_create(2);
@@ -151,13 +150,13 @@ int main(int argc, char *argv[]) {
             recvfrom_addr.c_str(), recvfrom_port);
 
       // Check whether we received from the same server
-      if (recvfrom_addr != addr) {
+      if (recvfrom_addr != server.addr()) {
         LOG_F(WARNING, "[C%d] send_addr={%s}, recv_addr={%s}", sock_fd,
-              addr.c_str(), recvfrom_addr.c_str());
+              server.addr().c_str(), recvfrom_addr.c_str());
       }
-      if (recvfrom_port != port) {
-        LOG_F(WARNING, "[C%d] send_port={%d}, recv_addr={%d}", sock_fd, port,
-              recvfrom_port);
+      if (recvfrom_port != server.port()) {
+        LOG_F(WARNING, "[C%d] send_port={%d}, recv_addr={%d}", sock_fd,
+              server.port(), recvfrom_port);
       }
 
       // Extract first token
