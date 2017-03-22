@@ -59,14 +59,18 @@ int main(int argc, char *argv[]) {
 
   // Setup connection
   int sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
-  struct sockaddr_in server_addr;
-  bzero(&server_addr, sizeof(server_addr));
-  server_addr.sin_family = AF_INET;
-  server_addr.sin_port = htons(server.port());
-  inet_pton(AF_INET, server.addr().c_str(), &(server_addr.sin_addr));
+  if (sock_fd == -1) {
+    LOG_F(ERROR, "Failed to create socket");
+    return EXIT_FAILURE;
+  }
+  auto server_addr = MakeSockAddrInet(server);
 
   // Setup epoll
   int epoll_fd = epoll_create(2);
+  if (epoll_fd < 0) {
+    LOG_F(ERROR, "Failed to create epoll");
+    return EXIT_FAILURE;
+  }
   struct epoll_event event;
   // add stdin
   event.events = EPOLLIN | EPOLLPRI | EPOLLERR;
@@ -144,26 +148,22 @@ int main(int argc, char *argv[]) {
       buffer[nrecv] = 0;
       LOG_F(INFO, "[C%d] Recv from socket, str={%s}, n={%d}", sock_fd, buffer,
             nrecv);
-      std::string recvfrom_addr(inet_ntoa(src_addr.sin_addr));
-      int recvfrom_port = ntohs(src_addr.sin_port);
-      LOG_F(INFO, "[C%d] Recv server, addr={%s}, port={%d}", sock_fd,
-            recvfrom_addr.c_str(), recvfrom_port);
+      const auto recv_server = GetAddrPort(src_addr);
+      LOG_F(INFO, "[C%d] Recv server, addr={%s:%d}", sock_fd,
+            recv_server.addr().c_str(), recv_server.port());
 
       // Check whether we received from the same server
-      if (recvfrom_addr != server.addr()) {
-        LOG_F(WARNING, "[C%d] send_addr={%s}, recv_addr={%s}", sock_fd,
-              server.addr().c_str(), recvfrom_addr.c_str());
-      }
-      if (recvfrom_port != server.port()) {
-        LOG_F(WARNING, "[C%d] send_port={%d}, recv_addr={%d}", sock_fd,
-              server.port(), recvfrom_port);
+      if (recv_server != server) {
+        LOG_F(WARNING, "[C%d] send_addr={%s:%d}, recv_addr={%s:%d}", sock_fd,
+              server.addr().c_str(), server.port(), recv_server.addr().c_str(),
+              recv_server.port());
       }
 
       // Extract first token
       std::string msg(buffer, nrecv);
       const auto token = msg.substr(0, msg.find(' '));
 
-      // Print to stdin, with RANG!!!
+      // Print to terminal, with RANG!!!
       if (token == "+OK") {
         std::cout << rang::fg::green << msg << rang::fg::reset << std::endl;
       } else if (token == "-ERR") {

@@ -76,3 +76,22 @@ std::vector<ServerAddrPort> ParseConfig(const std::string &config) {
 
   return server_list;
 }
+
+sockaddr_in MakeSockAddrInet(const AddrPort &addr_port) {
+  return MakeSockAddrInet(addr_port.addr(), addr_port.port());
+}
+
+sockaddr_in MakeSockAddrInet(const std::string &addr, int port) {
+  struct sockaddr_in addr_inet;
+  bzero(&addr_inet, sizeof(addr_inet));
+  addr_inet.sin_family = AF_INET;
+  addr_inet.sin_addr.s_addr = inet_addr(addr.c_str());
+  addr_inet.sin_port = htons(port);
+  return addr_inet;
+}
+
+AddrPort GetAddrPort(const sockaddr_in &sock_addr) {
+  std::string addr(inet_ntoa(sock_addr.sin_addr));
+  int port = ntohs(sock_addr.sin_port);
+  return {addr, port};
+}
