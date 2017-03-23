@@ -19,7 +19,7 @@ public:
 
   const std::string &addr() const { return addr_; }
   const int port() const { return port_; }
-  const std::string &addr_port() const {
+  const std::string addr_port() const {
     return addr_ + ":" + std::to_string(port_);
   }
 
@@ -42,46 +42,11 @@ private:
   AddrPort binding_;
 };
 
-/**
- * @brief ParseAddrPort
- * @param addr_port String in the form addr:port
- * @return (addr, port)
- */
 AddrPort ParseAddrPort(const std::string &addr_port);
-
-/**
- * @brief GetForwardBinding
- * @param line String in the form forward,binding
- * @return (forward, binding)
- */
 std::tuple<std::string, std::string> GetForwardBinding(const std::string &line);
 
-/**
- * @brief ParseConfig
- * @param config
- */
-std::vector<ServerAddrPort> ParseConfig(const std::string &config);
-
-/**
- * @brief MakeSockAddrInet
- * @param addr_port
- * @return
- */
 sockaddr_in MakeSockAddrInet(const AddrPort &addr_port);
-
-/**
- * @brief MakeSockAddrIn
- * @param addr Address
- * @param port Port number
- * @return
- */
 sockaddr_in MakeSockAddrInet(const std::string &addr, int port);
-
-/**
- * @brief GetAddrPort
- * @param sock_addr
- * @return
- */
 AddrPort GetAddrPort(const sockaddr_in &sock_addr);
 
 #endif // CHATUTILS_H

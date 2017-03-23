@@ -10,9 +10,7 @@
 #include "loguru.hpp"
 #include "rang.hpp"
 
-#include "chatutils.hpp"
-
-static constexpr int kMaxBufSize = 1024;
+#include "server.hpp"
 
 void ConfigureParser(cli::Parser &parser) {
   parser.set_required<std::vector<std::string>>(
@@ -59,51 +57,9 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-  std::vector<ServerAddrPort> servers;
-  try {
-    servers = ParseConfig(config);
-  } catch (const std::invalid_argument &err) {
-    LOG_F(ERROR, err.what());
-    return EXIT_FAILURE;
-  }
-  LOG_F(INFO, "Total servers, n={%zu}", servers.size());
-
-  // Setup connection
-  const auto &server = servers[index - 1];
-  const auto &binding = server.binding();
-  int sock = socket(AF_INET, SOCK_DGRAM, 0);
-  if (sock == -1) {
-    LOG_F(ERROR, "[S%d] Failed to create socket", index);
-    return EXIT_FAILURE;
-  }
-
-  // Bind to binding address
-  auto serv_addr = MakeSockAddrInet(binding);
-  if (bind(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1) {
-    LOG_F(ERROR, "[S%d] Failed to bind to address", index);
-    return EXIT_FAILURE;
-  }
-
-  while (true) {
-    struct sockaddr_in src;
-    socklen_t srclen = sizeof(src);
-    char buffer[kMaxBufSize];
-    int nrecv = recvfrom(sock, buffer, sizeof(buffer) - 1, 0,
-                         (struct sockaddr *)&src, &srclen);
-    if (nrecv < 0) {
-      LOG_F(ERROR, "[S%d] recvfrom failed", index);
-      continue;
-    }
-
-    // Null terminate buffer
-    buffer[nrecv] = 0;
-    std::string msg(buffer, nrecv);
-    LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}", index, msg.c_str(), nrecv);
-    const auto src_addr_port = GetAddrPort(src);
-
-    const auto src_index = GetServerIndex(src_addr_port);
-    sendto(sock, buffer, nrecv, 0, (struct sockaddr *)&src, sizeof(src));
-  }
+  Server server(index);
+  server.Init(config);
+  server.Run();
 
   return EXIT_SUCCESS;
 }

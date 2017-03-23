@@ -11,7 +11,7 @@ LFLAGS = -ldl -lstdc++fs
 _DEPS = loguru.hpp rang.hpp string_algorithms.hpp chatutils.hpp
 DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
 
- _OBJS = string_algorithms.o chatutils.o 
+ _OBJS = string_algorithms.o chatutils.o lpi.o server.o
 OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
 
 
