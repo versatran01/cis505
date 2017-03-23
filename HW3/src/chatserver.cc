@@ -99,7 +99,9 @@ int main(int argc, char *argv[]) {
     buffer[nrecv] = 0;
     std::string msg(buffer, nrecv);
     LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}", index, msg.c_str(), nrecv);
+    const auto src_addr_port = GetAddrPort(src);
 
+    const auto src_index = GetServerIndex(src_addr_port);
     sendto(sock, buffer, nrecv, 0, (struct sockaddr *)&src, sizeof(src));
   }
 

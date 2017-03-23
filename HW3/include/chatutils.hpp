@@ -19,6 +19,9 @@ public:
 
   const std::string &addr() const { return addr_; }
   const int port() const { return port_; }
+  const std::string &addr_port() const {
+    return addr_ + ":" + std::to_string(port_);
+  }
 
 private:
   std::string addr_;

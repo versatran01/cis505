@@ -149,14 +149,13 @@ int main(int argc, char *argv[]) {
       LOG_F(INFO, "[C%d] Recv from socket, str={%s}, n={%d}", sock_fd, buffer,
             nrecv);
       const auto recv_server = GetAddrPort(src_addr);
-      LOG_F(INFO, "[C%d] Recv server, addr={%s:%d}", sock_fd,
-            recv_server.addr().c_str(), recv_server.port());
+      LOG_F(INFO, "[C%d] Recv server, addr={%s}", sock_fd,
+            recv_server.addr_port().c_str());
 
       // Check whether we received from the same server
       if (recv_server != server) {
-        LOG_F(WARNING, "[C%d] send_addr={%s:%d}, recv_addr={%s:%d}", sock_fd,
-              server.addr().c_str(), server.port(), recv_server.addr().c_str(),
-              recv_server.port());
+        LOG_F(WARNING, "[C%d] send_addr={%s}, recv_addr={%s}", sock_fd,
+              server.addr_port(), recv_server.addr_port().c_str());
       }
 
       // Extract first token
