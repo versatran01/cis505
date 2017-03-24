@@ -115,16 +115,16 @@ void Server::Run() {
     // Null terminate buffer
     buffer[nrecv] = 0;
     std::string msg(buffer, nrecv);
-    const auto src_addr_port = GetAddrPort(src_addr);
+    const auto src_addrport = GetAddrPort(src_addr);
     LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}, addr={%s}", index_, msg.c_str(),
-          nrecv, src_addr_port.full().c_str());
+          nrecv, src_addrport.full().c_str());
 
     // Check src address
-    auto src_index = GetServerIndex(src_addr_port);
+    auto src_index = GetServerIndex(src_addrport);
     if (src_index < 0) {
       LOG_F(INFO, "[S%d] Msg from client, addr={%s}", index_,
-            src_addr_port.full().c_str());
-      HandleClientMessage(src_addr_port, msg);
+            src_addrport.full().c_str());
+      HandleClientMessage(src_addrport, msg);
     } else {
       // TODO message from server
     }
@@ -134,16 +134,29 @@ void Server::Run() {
   }
 }
 
-int Server::GetServerIndex(const AddrPort &addr_port) const {
-  auto cmp_addr_port = [&](const ServerAddrPort &srv) {
-    return srv.binding() == addr_port;
+int Server::GetServerIndex(const AddrPort &addrport) const {
+  auto cmp_addrport = [&](const ServerAddrPort &srv) {
+    return srv.binding() == addrport;
   };
-  auto it = std::find_if(servers_.begin(), servers_.end(), cmp_addr_port);
+  auto it = std::find_if(servers_.begin(), servers_.end(), cmp_addrport);
   if (it == servers_.end()) {
     return -1;
   } else {
     // TODO: need to verify this
     return std::distance(servers_.begin(), it);
+  }
+}
+
+int Server::GetClientIndex(const AddrPort &addrport) const {
+  auto cmp_addrport = [&](const Client &client) {
+    return client.addrport() == addrport;
+  };
+  auto it = std::find_if(clients_.begin(), clients_.end(), cmp_addrport);
+  if (it == clients_.end()) {
+    return -1;
+  } else {
+    // TODO: need to verify this
+    return std::distance(clients_.begin(), it);
   }
 }
 
@@ -166,7 +179,26 @@ void Server::HandleClientMessage(const AddrPort &src, const std::string &msg) {
         return;
       }
 
-      // Check if this client is in some chatroom already
+      // Check if this client exists in the client list
+      auto client_index = GetClientIndex(src);
+      LOG_F(INFO, "[S%d] client index={%d}", index_, client_index);
+      if (client_index < 0) {
+        // If not, create a new client
+        clients_.emplace_back(src);
+        LOG_F(INFO, "[S%d] Add a new client, addr={%s}, room={%d}", index_,
+              src.full().c_str(), room_index);
+        ReplyOk(src, "You are now in chat room #" + arg);
+      } else {
+        // If exists, check if it is already in a room
+        Client &client = clients_[client_index];
+        if (client.InRoom()) {
+          // If already in room reply with error message
+
+        } else {
+          // If not, join room
+          client.set_room(room_index);
+        }
+      }
 
     } else if (cmd == "nick") {
     } else if (cmd == "part") {
@@ -193,19 +225,27 @@ void Server::ForwardMessage(const std::string &msg) const {
   }
 }
 
-void Server::SendTo(const AddrPort &addr_port, const std::string &msg) const {
-  auto dest = MakeSockAddrInet(addr_port);
+void Server::SendTo(const AddrPort &addrport, const std::string &msg) const {
+  auto dest = MakeSockAddrInet(addrport);
   auto nsend = sendto(fd_, msg.c_str(), msg.size(), 0, (struct sockaddr *)&dest,
                       sizeof(dest));
   if (nsend < 0) {
     LOG_F(ERROR, "[S%d] Send failed, dest={%s}", index_,
-          addr_port.full().c_str());
+          addrport.full().c_str());
   } else if (nsend != msg.size()) {
     LOG_F(WARNING,
           "[S%d] Byte sent doesn't match msg size, nsend={%zu}, nmsg={%zu}",
           index_, nsend, msg.size());
   } else {
     LOG_F(INFO, "[S%d] Msg sent, str={%s}, addr={%s}", index_, msg.c_str(),
-          addr_port.full().c_str());
+          addrport.full().c_str());
   }
+}
+
+void Server::ReplyOk(const AddrPort &addrport, const std::string &msg) const {
+  SendTo(addrport, "+OK " + msg);
+}
+
+void Server::ReplyErr(const AddrPort &addrport, const std::string &msg) const {
+  SendTo(addrport, "-ERR " + msg);
 }

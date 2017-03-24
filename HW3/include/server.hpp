@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "addrport.hpp"
+#include "client.hpp"
 
 enum class Order { UNORDERD, FIFO, TOTAL };
 
@@ -20,16 +21,19 @@ public:
 private:
   void ReadConfig(const std::string &config);
   void SetupConnection();
-  int GetServerIndex(const AddrPort &addr_port) const;
+  int GetServerIndex(const AddrPort &addrport) const;
+  int GetClientIndex(const AddrPort &addrport) const;
   void HandleClientMessage(const AddrPort &src, const std::string &msg);
-  void SendTo(const AddrPort &addr_port, const std::string &msg) const;
-  void RecvFrom(AddrPort &addr_port, std::string &msg) const;
+  void SendTo(const AddrPort &addrport, const std::string &msg) const;
+  void RecvFrom(AddrPort &addrport, std::string &msg) const;
   void ForwardMessage(const std::string &msg) const;
+  void ReplyOk(const AddrPort &addrport, const std::string &msg) const;
+  void ReplyErr(const AddrPort &addrport, const std::string &msg) const;
 
   int fd_;
   int index_;
   std::vector<ServerAddrPort> servers_;
-  std::vector<AddrPort> clients_;
+  std::vector<Client> clients_;
   Order order_;
 };
 
