@@ -134,11 +134,11 @@ void Server::Run() {
   }
 }
 
-int Server::GetServerIndex(const AddrPort &addrport) const {
-  auto cmp_addrport = [&](const ServerAddrPort &srv) {
-    return srv.binding() == addrport;
+int Server::GetServerIndex(const AddrPort &addr) const {
+  auto cmp_addr = [&](const ServerAddrPort &srv) {
+    return srv.binding() == addr;
   };
-  auto it = std::find_if(servers_.begin(), servers_.end(), cmp_addrport);
+  auto it = std::find_if(servers_.begin(), servers_.end(), cmp_addr);
   if (it == servers_.end()) {
     return -1;
   } else {
@@ -147,11 +147,9 @@ int Server::GetServerIndex(const AddrPort &addrport) const {
   }
 }
 
-int Server::GetClientIndex(const AddrPort &addrport) const {
-  auto cmp_addrport = [&](const Client &client) {
-    return client.addrport() == addrport;
-  };
-  auto it = std::find_if(clients_.begin(), clients_.end(), cmp_addrport);
+int Server::GetClientIndex(const AddrPort &addr) const {
+  auto cmp_addr = [&](const Client &client) { return client.addr() == addr; };
+  auto it = std::find_if(clients_.begin(), clients_.end(), cmp_addr);
   if (it == clients_.end()) {
     return -1;
   } else {
@@ -160,8 +158,7 @@ int Server::GetClientIndex(const AddrPort &addrport) const {
   }
 }
 
-void Server::HandleClientMessage(const AddrPort &addrport,
-                                 const std::string &msg) {
+void Server::HandleClientMessage(const AddrPort &addr, const std::string &msg) {
   if (msg.empty()) {
     LOG_F(WARNING, "[S%d] empty string", id());
     return;
@@ -173,18 +170,19 @@ void Server::HandleClientMessage(const AddrPort &addrport,
     const auto cmd = trim_copy(msg.substr(1, 5));
     if (cmd == "join") {
       const auto room = msg.substr(6);
-      Join(addrport, room);
+      Join(addr, room);
     } else if (cmd == "nick") {
       const auto nick = msg.substr(6);
-      Nick(addrport, nick);
+      Nick(addr, nick);
     } else if (cmd == "part") {
-      Part(addrport);
+      Part(addr);
     } else if (cmd == "quit") {
-
+      Quit(addr);
     } else {
       LOG_F(WARNING, "[S%d] invalid command cmd={%s}", id(), cmd.c_str());
-      ReplyErr(addrport, "You entered an invalid command.");
+      ReplyErr(addr, "You entered an invalid command.");
     }
+    LOG_F(INFO, "[S%d] Num clients, n={%zu}", id(), n_clients());
   } else {
     // This is a message, just forward to every other server
     ForwardMessage(msg);
@@ -202,28 +200,28 @@ void Server::ForwardMessage(const std::string &msg) const {
   }
 }
 
-void Server::SendTo(const AddrPort &addrport, const std::string &msg) const {
-  auto dest = MakeSockAddrInet(addrport);
+void Server::SendTo(const AddrPort &addr, const std::string &msg) const {
+  auto dest = MakeSockAddrInet(addr);
   auto nsend = sendto(fd_, msg.c_str(), msg.size(), 0, (struct sockaddr *)&dest,
                       sizeof(dest));
   if (nsend < 0) {
-    LOG_F(ERROR, "[S%d] Send failed, dest={%s}", id(), addrport.full().c_str());
+    LOG_F(ERROR, "[S%d] Send failed, dest={%s}", id(), addr.full().c_str());
   } else if (nsend != msg.size()) {
     LOG_F(WARNING,
           "[S%d] Byte sent doesn't match msg size, nsend={%zu}, nmsg={%zu}",
           id_, nsend, msg.size());
   } else {
     LOG_F(INFO, "[S%d] Msg sent, str={%s}, addr={%s}", id(), msg.c_str(),
-          addrport.full().c_str());
+          addr.full().c_str());
   }
 }
 
-void Server::ReplyOk(const AddrPort &addrpot, const std::string &msg) const {
-  SendTo(addrpot, "+OK " + msg);
+void Server::ReplyOk(const AddrPort &addr, const std::string &msg) const {
+  SendTo(addr, "+OK " + msg);
 }
 
-void Server::ReplyErr(const AddrPort &addrport, const std::string &msg) const {
-  SendTo(addrport, "-ERR " + msg);
+void Server::ReplyErr(const AddrPort &addr, const std::string &msg) const {
+  SendTo(addr, "-ERR " + msg);
 }
 
 void Server::Join(const AddrPort &addr, const std::string &arg) {
@@ -299,5 +297,21 @@ void Server::Part(const AddrPort &addr) {
   }
 }
 
-void Server::Quit() {
+void Server::Quit(const AddrPort &addr) {
+  // Check if this client exists in the client list
+  const auto client_index = GetClientIndex(addr);
+  LOG_F(INFO, "[S%d] client index={%d}", id(), client_index);
+
+  if (client_index < 0) {
+    LOG_F(INFO, "[S%d] Client doesn't exists", id());
+    return;
+  } else {
+    LOG_F(INFO, "[S%d] Removing client index={%d}", id(), client_index);
+    // Remove client
+    auto cmp_addr = [&addr](const Client &client) {
+      return client.addr() == addr;
+    };
+    clients_.erase(std::remove_if(clients_.begin(), clients_.end(), cmp_addr),
+                   clients_.end());
+  }
 }

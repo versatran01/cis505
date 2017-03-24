@@ -6,14 +6,14 @@
 
 class Client {
 public:
-  explicit Client(const AddrPort &addrport)
-      : addrport_(addrport), nick_(addrport.full()), room_(-1) {}
-  Client(const AddrPort &addrport, int room)
-      : addrport_(addrport), nick_(addrport.full()), room_(room) {}
-  Client(const AddrPort &addrport, const std::string &nick)
-      : addrport_(addrport), nick_(nick), room_(-1) {}
+  explicit Client(const AddrPort &addr)
+      : addr_(addr), nick_(addr.full()), room_(-1) {}
+  Client(const AddrPort &addr, int room)
+      : addr_(addr), nick_(addr.full()), room_(room) {}
+  Client(const AddrPort &addr, const std::string &nick)
+      : addr_(addr), nick_(nick), room_(-1) {}
 
-  const AddrPort addrport() const { return addrport_; }
+  const AddrPort addr() const { return addr_; }
 
   void set_nick(const std::string &nick) { nick_ = nick; }
   const std::string &nick() const { return nick_; }
@@ -30,7 +30,7 @@ public:
   }
 
 private:
-  AddrPort addrport_;
+  AddrPort addr_;
   std::string nick_;
   int room_;
 };

@@ -30,23 +30,23 @@ private:
   void ReadConfig(const std::string &config);
   void SetupConnection();
 
-  int GetServerIndex(const AddrPort &addrport) const;
-  int GetClientIndex(const AddrPort &addrport) const;
+  int GetServerIndex(const AddrPort &addr) const;
+  int GetClientIndex(const AddrPort &addr) const;
 
-  void SendTo(const AddrPort &addrport, const std::string &msg) const;
-  void RecvFrom(AddrPort &addrport, std::string &msg) const;
+  void SendTo(const AddrPort &addr, const std::string &msg) const;
+  void RecvFrom(AddrPort &addr, std::string &msg) const;
 
-  void ReplyOk(const AddrPort &addrpot, const std::string &msg) const;
-  void ReplyErr(const AddrPort &addrport, const std::string &msg) const;
+  void ReplyOk(const AddrPort &addr, const std::string &msg) const;
+  void ReplyErr(const AddrPort &addr, const std::string &msg) const;
 
-  void HandleClientMessage(const AddrPort &addrport, const std::string &msg);
+  void HandleClientMessage(const AddrPort &addr, const std::string &msg);
   void HandleServerMessage(const AddrPort &src, const std::string &msg);
   void ForwardMessage(const std::string &msg) const;
 
   void Join(const AddrPort &addr, const std::string &arg);
   void Nick(const AddrPort &addr, const std::string &arg);
   void Part(const AddrPort &addr);
-  void Quit();
+  void Quit(const AddrPort &addr);
 
   int fd_;
   int id_; // id of the server, starts at 1
