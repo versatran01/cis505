@@ -160,7 +160,8 @@ int Server::GetClientIndex(const AddrPort &addrport) const {
   }
 }
 
-void Server::HandleClientMessage(const AddrPort &src, const std::string &msg) {
+void Server::HandleClientMessage(const AddrPort &addrport,
+                                 const std::string &msg) {
   if (msg.empty()) {
     LOG_F(WARNING, "[S%d] empty string", id());
     return;
@@ -169,44 +170,20 @@ void Server::HandleClientMessage(const AddrPort &src, const std::string &msg) {
   // Check if the first character is a /
   if (msg[0] == '/') {
     // This is a command
-    const auto cmd = msg.substr(1, 4);
-    const auto arg = msg.substr(6);
+    const auto cmd = trim_copy(msg.substr(1, 5));
     if (cmd == "join") {
-      const int room = std::atoi(arg.c_str());
-      if (room <= 0) {
-        LOG_F(ERROR, "[S%d] Invalid room number, arg={%s}", id(), arg.c_str());
-        ReplyErr(src, "You provided an invalid room number #" + arg);
-        return;
-      }
-
-      // Check if this client exists in the client list
-      const auto client_index = GetClientIndex(src);
-      LOG_F(INFO, "[S%d] client index={%d}", id(), client_index);
-      if (client_index < 0) {
-        // If not, create a new client
-        clients_.emplace_back(src);
-        LOG_F(INFO, "[S%d] Add a new client, addr={%s}, room={%d}", id(),
-              src.full().c_str(), room);
-        ReplyOk(src, "You are now in chat room #" + arg);
-      } else {
-        // If exists, check if it is already in a room
-        Client &client = clients_[client_index];
-        if (client.InRoom()) {
-          // If already in room reply with error message
-          ReplyErr(src, "You are already in chat room #" + client.room_str());
-        } else {
-          // If not, join room
-          client.set_room(room);
-          ReplyOk(src, "You are now in chat room #" + arg);
-        }
-      }
+      const auto room = msg.substr(6);
+      Join(addrport, room);
     } else if (cmd == "nick") {
+      const auto nick = msg.substr(6);
+      Nick(addrport, nick);
     } else if (cmd == "part") {
+      Part(addrport);
     } else if (cmd == "quit") {
 
     } else {
       LOG_F(WARNING, "[S%d] invalid command cmd={%s}", id(), cmd.c_str());
-      ReplyErr(src, "You entered an invalid command.");
+      ReplyErr(addrport, "You entered an invalid command.");
     }
   } else {
     // This is a message, just forward to every other server
@@ -241,10 +218,86 @@ void Server::SendTo(const AddrPort &addrport, const std::string &msg) const {
   }
 }
 
-void Server::ReplyOk(const AddrPort &addrport, const std::string &msg) const {
-  SendTo(addrport, "+OK " + msg);
+void Server::ReplyOk(const AddrPort &addrpot, const std::string &msg) const {
+  SendTo(addrpot, "+OK " + msg);
 }
 
 void Server::ReplyErr(const AddrPort &addrport, const std::string &msg) const {
   SendTo(addrport, "-ERR " + msg);
+}
+
+void Server::Join(const AddrPort &addr, const std::string &arg) {
+  const int room = std::atoi(arg.c_str());
+  if (room <= 0) {
+    LOG_F(ERROR, "[S%d] Invalid room number, arg={%s}", id(), arg.c_str());
+    ReplyErr(addr, "You provided an invalid room number #" + arg);
+    return;
+  }
+
+  // Check if this client exists in the client list
+  const auto client_index = GetClientIndex(addr);
+  LOG_F(INFO, "[S%d] client index={%d}", id(), client_index);
+  if (client_index < 0) {
+    // If not, create a new client
+    clients_.emplace_back(addr, room);
+    LOG_F(INFO, "[S%d] Add a new client, addr={%s}, room={%d}", id(),
+          addr.full().c_str(), room);
+    ReplyOk(addr, "You are now in chat room #" + arg);
+  } else {
+    // If exists, check if it is already in a room
+    Client &client = clients_[client_index];
+    if (client.InRoom()) {
+      // If already in room reply with error message
+      ReplyErr(addr, "You are already in chat room #" + client.room_str());
+    } else {
+      // If not, join room
+      client.set_room(room);
+      ReplyOk(addr, "You are now in chat room #" + arg);
+    }
+  }
+}
+
+void Server::Nick(const AddrPort &addr, const std::string &arg) {
+  if (arg.empty()) {
+    LOG_F(ERROR, "[S%d] No nick name provided", id());
+    ReplyErr(addr, "You provided an empty nick name");
+    return;
+  }
+
+  // Check if this client exists in the client list
+  const auto client_index = GetClientIndex(addr);
+  LOG_F(INFO, "[S%d] client index={%d}", id(), client_index);
+
+  if (client_index < 0) {
+    // If not, create a new client
+    clients_.emplace_back(addr, arg);
+    LOG_F(INFO, "[S%d] Add a new client, addr={%s}, nick={%s}", id(),
+          addr.full().c_str(), arg.c_str());
+  } else {
+    Client &client = clients_[client_index];
+    client.set_nick(arg);
+  }
+  ReplyOk(addr, "Nick name set to '" + arg + "'");
+}
+
+void Server::Part(const AddrPort &addr) {
+  // Check if this client exists in the client list
+  const auto client_index = GetClientIndex(addr);
+  LOG_F(INFO, "[S%d] client index={%d}", id(), client_index);
+
+  if (client_index < 0) {
+    LOG_F(INFO, "[S%d] Client hasn't joined any room", id());
+    ReplyErr(addr, "Cannot part because you haven't join any room");
+  } else {
+    Client &client = clients_[client_index];
+    const auto old_room = client.leave();
+    if (old_room < 0) {
+      ReplyErr(addr, "You are not in any room");
+    } else {
+      ReplyOk(addr, "You have left chat room #" + std::to_string(old_room));
+    }
+  }
+}
+
+void Server::Quit() {
 }

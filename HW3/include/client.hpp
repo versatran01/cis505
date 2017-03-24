@@ -10,6 +10,8 @@ public:
       : addrport_(addrport), nick_(addrport.full()), room_(-1) {}
   Client(const AddrPort &addrport, int room)
       : addrport_(addrport), nick_(addrport.full()), room_(room) {}
+  Client(const AddrPort &addrport, const std::string &nick)
+      : addrport_(addrport), nick_(nick), room_(-1) {}
 
   const AddrPort addrport() const { return addrport_; }
 
@@ -21,6 +23,11 @@ public:
   void set_room(int room) { room_ = room; }
   const std::string room_str() const { return std::to_string(room_); }
   bool InRoom() const { return room_ > 0; }
+  int leave() {
+    int old_room = room_;
+    room_ = -1;
+    return old_room;
+  }
 
 private:
   AddrPort addrport_;
