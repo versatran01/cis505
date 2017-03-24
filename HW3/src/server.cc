@@ -1,4 +1,5 @@
 #include "server.hpp"
+#include "chatutils.hpp"
 #include "loguru.hpp"
 #include "lpi.h"
 #include "string_algorithms.hpp"
@@ -30,18 +31,16 @@ std::vector<ServerAddrPort> ParseConfig(const std::string &config) {
     // Try to split each line input forward and binding address and port
     std::string forward_addr_port, binding_addr_port;
     std::tie(forward_addr_port, binding_addr_port) = GetForwardBinding(line);
-    LOG_F(INFO, "forward={%s}, binding={%s}", forward_addr_port.c_str(),
-          binding_addr_port.c_str());
+    //    LOG_F(INFO, "forward={%s}, binding={%s}", forward_addr_port.c_str(),
+    //          binding_addr_port.c_str());
 
     // Parse Addr and port and add to server list
     try {
       const auto forward = ParseAddrPort(forward_addr_port);
       const auto binding = ParseAddrPort(binding_addr_port);
       server_list.emplace_back(forward, binding);
-      LOG_F(INFO, "Add forward addr={%s}, port={%d}", forward.addr().c_str(),
-            forward.port());
-      LOG_F(INFO, "Add binding addr={%s}, port={%d}", binding.addr().c_str(),
-            forward.port());
+      LOG_F(INFO, "forward={%s}, binding={%s}", forward.addr_port().c_str(),
+            binding.addr_port().c_str());
     } catch (const std::invalid_argument &err) {
       LOG_F(ERROR, err.what());
       continue;
@@ -51,7 +50,21 @@ std::vector<ServerAddrPort> ParseConfig(const std::string &config) {
   return server_list;
 }
 
-Server::Server(int index) : index_(index) {}
+Server::Server(int index, const std::string &order) : index_(index) {
+  if (order == "unordered") {
+    order_ = Order::UNORDERD;
+    LOG_F(INFO, "unordered");
+  } else if (order == "fifo") {
+    order_ = Order::FIFO;
+    LOG_F(INFO, "fifo order");
+  } else if (order == "total") {
+    order_ = Order::TOTAL;
+    LOG_F(INFO, "fifo order");
+  } else {
+    order_ = Order::UNORDERD;
+    LOG_F(WARNING, "invalid order, default to unordered");
+  }
+}
 
 void Server::Init(const std::string &config) {
   ReadConfig(config);
@@ -89,11 +102,11 @@ void Server::ReadConfig(const std::string &config) {
 
 void Server::Run() {
   while (true) {
-    struct sockaddr_in src;
-    socklen_t srclen = sizeof(src);
+    struct sockaddr_in src_addr;
+    socklen_t srclen = sizeof(src_addr);
     char buffer[kMaxBufSize];
     int nrecv = recvfrom(fd_, buffer, sizeof(buffer) - 1, 0,
-                         (struct sockaddr *)&src, &srclen);
+                         (struct sockaddr *)&src_addr, &srclen);
     if (nrecv < 0) {
       LOG_F(ERROR, "[S%d] recvfrom failed", index_);
       continue;
@@ -102,10 +115,97 @@ void Server::Run() {
     // Null terminate buffer
     buffer[nrecv] = 0;
     std::string msg(buffer, nrecv);
-    LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}", index_, msg.c_str(), nrecv);
-    const auto src_addr_port = GetAddrPort(src);
+    const auto src_addr_port = GetAddrPort(src_addr);
+    LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}, addr={%s}", index_, msg.c_str(),
+          nrecv, src_addr_port.addr_port().c_str());
 
-    //    const auto src_index = GetServerIndex(src_addr_port);
-    sendto(fd_, buffer, nrecv, 0, (struct sockaddr *)&src, sizeof(src));
+    // Check src address
+    auto src_index = GetServerIndex(src_addr_port);
+    if (src_index < 0) {
+      LOG_F(INFO, "[S%d] Msg from client, addr={%s}", index_,
+            src_addr_port.addr_port().c_str());
+      HandleClientMessage(src_addr_port, msg);
+    } else {
+      // TODO message from server
+    }
+
+    sendto(fd_, buffer, nrecv, 0, (struct sockaddr *)&src_addr,
+           sizeof(src_addr));
+  }
+}
+
+int Server::GetServerIndex(const AddrPort &addr_port) const {
+  auto cmp_addr_port = [&](const ServerAddrPort &srv) {
+    return srv.binding() == addr_port;
+  };
+  auto it = std::find_if(servers_.begin(), servers_.end(), cmp_addr_port);
+  if (it == servers_.end()) {
+    return -1;
+  } else {
+    // TODO: need to verify this
+    return std::distance(servers_.begin(), it);
+  }
+}
+
+void Server::HandleClientMessage(const AddrPort &src, const std::string &msg) {
+  if (msg.empty()) {
+    LOG_F(WARNING, "[S%d] empty string", index_);
+    return;
+  }
+
+  // Check if the first character is a /
+  if (msg[0] == '/') {
+    // This is a command
+    const auto cmd = msg.substr(1, 4);
+    const auto arg = msg.substr(6);
+    if (cmd == "join") {
+      const int room_index = std::atoi(arg.c_str());
+      if (room_index <= 0) {
+        LOG_F(ERROR, "[S%d] Invalid room number, arg={%s}", index_,
+              arg.c_str());
+        return;
+      }
+
+      // Check if this client is in some chatroom already
+
+    } else if (cmd == "nick") {
+    } else if (cmd == "part") {
+    } else if (cmd == "quit") {
+
+    } else {
+      LOG_F(WARNING, "[S%d] invalid command cmd={%s}", index_, cmd.c_str());
+    }
+  } else {
+    // This is a message, just forward to every other server
+    ForwardMessage(msg);
+    // Also send it back to itself
+  }
+}
+
+void Server::ForwardMessage(const std::string &msg) const {
+  int index = index_ - 1;
+  for (size_t i = 0; i < servers_.size(); ++i) {
+    const auto server = servers_[i];
+    if (i != index) {
+      SendTo(server.forward(), msg);
+      LOG_F(INFO, "[S%d] Send to i={%d}", index_, i + 1);
+    }
+  }
+}
+
+void Server::SendTo(const AddrPort &addr_port, const std::string &msg) const {
+  auto dest = MakeSockAddrInet(addr_port);
+  auto nsend = sendto(fd_, msg.c_str(), msg.size(), 0, (struct sockaddr *)&dest,
+                      sizeof(dest));
+  if (nsend < 0) {
+    LOG_F(ERROR, "[S%d] Send failed, dest={%s}", index_,
+          addr_port.addr_port().c_str());
+  } else if (nsend != msg.size()) {
+    LOG_F(WARNING,
+          "[S%d] Byte sent doesn't match msg size, nsend={%zu}, nmsg={%zu}",
+          index_, nsend, msg.size());
+  } else {
+    LOG_F(INFO, "[S%d] Msg sent, str={%s}, addr={%s}", index_, msg.c_str(),
+          addr_port.addr_port().c_str());
   }
 }

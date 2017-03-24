@@ -1,10 +1,3 @@
-#include <arpa/inet.h>
-#include <cstdio>
-#include <cstdlib>
-#include <fstream>
-#include <iostream>
-#include <regex>
-
 #include "cmdparser.hpp"
 #define LOGURU_IMPLEMENTATION 1
 #include "loguru.hpp"
@@ -51,13 +44,17 @@ int main(int argc, char *argv[]) {
   const auto index = std::atoi(config_and_index[1].c_str());
   LOG_F(INFO, "argv: %s %d", config.c_str(), index);
 
+  // Get order mode
+  const auto order = parser.get<std::string>("o");
+
   // Check index
   if (index <= 0) {
     LOG_F(ERROR, "Invalid server index.");
     return EXIT_FAILURE;
   }
 
-  Server server(index);
+  // Construct and run server
+  Server server(index, order);
   server.Init(config);
   server.Run();
 
