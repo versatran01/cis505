@@ -102,11 +102,11 @@ void Server::ReadConfig(const std::string &config) {
 
 void Server::Run() {
   while (true) {
-    struct sockaddr_in src_addr;
-    socklen_t srclen = sizeof(src_addr);
+    struct sockaddr_in src;
+    socklen_t srclen = sizeof(src);
     char buffer[kMaxBufSize];
     int nrecv = recvfrom(fd_, buffer, sizeof(buffer) - 1, 0,
-                         (struct sockaddr *)&src_addr, &srclen);
+                         (struct sockaddr *)&src, &srclen);
     if (nrecv < 0) {
       LOG_F(ERROR, "[S%d] recvfrom failed", id());
       continue;
@@ -115,22 +115,22 @@ void Server::Run() {
     // Null terminate buffer
     buffer[nrecv] = 0;
     std::string msg(buffer, nrecv);
-    const auto src_addrport = GetAddrPort(src_addr);
+    const auto src_addr = GetAddrPort(src);
     LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}, addr={%s}", id(), msg.c_str(),
-          nrecv, src_addrport.full().c_str());
+          nrecv, src_addr.full().c_str());
 
     // Check src address
-    auto src_index = GetServerIndex(src_addrport);
+    const auto src_index = GetServerIndex(src_addr);
     if (src_index < 0) {
       LOG_F(INFO, "[S%d] Msg from client, addr={%s}", id(),
-            src_addrport.full().c_str());
-      HandleClientMessage(src_addrport, msg);
+            src_addr.full().c_str());
+      HandleClientMessage(src_addr, msg);
     } else {
+      LOG_F(INFO, "[S%d] Msg from server, addr={%s}", id(),
+            src_addr.full().c_str());
       // TODO message from server
+      HandleServerMessage(src_addr, msg);
     }
-
-    sendto(fd_, buffer, nrecv, 0, (struct sockaddr *)&src_addr,
-           sizeof(src_addr));
   }
 }
 
@@ -184,16 +184,35 @@ void Server::HandleClientMessage(const AddrPort &addr, const std::string &msg) {
     }
     LOG_F(INFO, "[S%d] Num clients, n={%zu}", id(), n_clients());
   } else {
-    // This is a message, just forward to every other server
-    ForwardMessage(msg);
-    // Also send it back to itself
+    // This is a message
+    const auto client_index = GetClientIndex(addr);
+    const Client &client = clients_[client_index];
+    if (client_index >= 0) {
+      // This message is from a client
+      // Send it to all servers
+      ForwardMsgToServers(msg);
+      // And also send back to this client
+      SendMsgToClient(client, msg);
+    }
   }
 }
 
-void Server::ForwardMessage(const std::string &msg) const {
+void Server::SendMsgToClient(const Client &client,
+                             const std::string &msg) const {
+  SendTo(client.addr(), client.nick2() + msg);
+}
+
+void Server::SendMsgToAllClients(const std::string &msg) const {
+  for (const Client &client : clients_) {
+    SendMsgToClient(client, msg);
+  }
+}
+
+void Server::ForwardMsgToServers(const std::string &msg) const {
   for (size_t i = 0; i < servers_.size(); ++i) {
     const auto server = servers_[i];
-    if (i != index()) {
+    const auto this_server = index();
+    if (i != this_server) {
       SendTo(server.forward(), msg);
       LOG_F(INFO, "[S%d] Send to i={%d}", id(), i + 1);
     }
@@ -234,7 +253,6 @@ void Server::Join(const AddrPort &addr, const std::string &arg) {
 
   // Check if this client exists in the client list
   const auto client_index = GetClientIndex(addr);
-  LOG_F(INFO, "[S%d] client index={%d}", id(), client_index);
   if (client_index < 0) {
     // If not, create a new client
     clients_.emplace_back(addr, room);
@@ -245,11 +263,15 @@ void Server::Join(const AddrPort &addr, const std::string &arg) {
     // If exists, check if it is already in a room
     Client &client = clients_[client_index];
     if (client.InRoom()) {
+      LOG_F(WARNING, "[S%d] client already in room, nick={%s}, room={%d}", id(),
+            client.nick().c_str(), client.room());
       // If already in room reply with error message
       ReplyErr(addr, "You are already in chat room #" + client.room_str());
     } else {
       // If not, join room
-      client.set_room(room);
+      client.Join(room);
+      LOG_F(INFO, "[S%d] client join room, nick={%s}, room={%d}", id(),
+            client.nick().c_str(), client.room());
       ReplyOk(addr, "You are now in chat room #" + arg);
     }
   }
@@ -264,8 +286,6 @@ void Server::Nick(const AddrPort &addr, const std::string &arg) {
 
   // Check if this client exists in the client list
   const auto client_index = GetClientIndex(addr);
-  LOG_F(INFO, "[S%d] client index={%d}", id(), client_index);
-
   if (client_index < 0) {
     // If not, create a new client
     clients_.emplace_back(addr, arg);
@@ -274,6 +294,8 @@ void Server::Nick(const AddrPort &addr, const std::string &arg) {
   } else {
     Client &client = clients_[client_index];
     client.set_nick(arg);
+    LOG_F(INFO, "[S%d] Client change nick, new={%s}", id(),
+          client.nick().c_str());
   }
   ReplyOk(addr, "Nick name set to '" + arg + "'");
 }
@@ -281,29 +303,28 @@ void Server::Nick(const AddrPort &addr, const std::string &arg) {
 void Server::Part(const AddrPort &addr) {
   // Check if this client exists in the client list
   const auto client_index = GetClientIndex(addr);
-  LOG_F(INFO, "[S%d] client index={%d}", id(), client_index);
-
   if (client_index < 0) {
-    LOG_F(INFO, "[S%d] Client hasn't joined any room", id());
+    LOG_F(WARNING, "[S%d] Client hasn't joined any room", id());
     ReplyErr(addr, "Cannot part because you haven't join any room");
   } else {
     Client &client = clients_[client_index];
-    const auto old_room = client.leave();
+    const auto old_room = client.Leave();
     if (old_room < 0) {
+      LOG_F(WARNING, "[S%d] Client is not in a room, nick={%s}", id(),
+            client.nick().c_str());
       ReplyErr(addr, "You are not in any room");
     } else {
+      LOG_F(INFO, "[S%d] Client left room, nick={%s}, room={%d}", id(),
+            client.nick().c_str(), old_room);
       ReplyOk(addr, "You have left chat room #" + std::to_string(old_room));
     }
   }
 }
 
 void Server::Quit(const AddrPort &addr) {
-  // Check if this client exists in the client list
   const auto client_index = GetClientIndex(addr);
-  LOG_F(INFO, "[S%d] client index={%d}", id(), client_index);
-
   if (client_index < 0) {
-    LOG_F(INFO, "[S%d] Client doesn't exists", id());
+    LOG_F(WARNING, "[S%d] Client doesn't exists", id());
     return;
   } else {
     LOG_F(INFO, "[S%d] Removing client index={%d}", id(), client_index);
@@ -314,4 +335,7 @@ void Server::Quit(const AddrPort &addr) {
     clients_.erase(std::remove_if(clients_.begin(), clients_.end(), cmp_addr),
                    clients_.end());
   }
+}
+
+void Server::HandleServerMessage(const AddrPort &addr, const std::string &msg) {
 }

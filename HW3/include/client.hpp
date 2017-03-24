@@ -17,13 +17,14 @@ public:
 
   void set_nick(const std::string &nick) { nick_ = nick; }
   const std::string &nick() const { return nick_; }
-  const std::string nick(char delim) const { return delim + nick_ + delim; }
+  const std::string nick2() const { return "<" + nick_ + "> "; }
 
   int room() const { return room_; }
-  void set_room(int room) { room_ = room; }
   const std::string room_str() const { return std::to_string(room_); }
+
   bool InRoom() const { return room_ > 0; }
-  int leave() {
+  void Join(int room) { room_ = room; }
+  int Leave() {
     int old_room = room_;
     room_ = -1;
     return old_room;

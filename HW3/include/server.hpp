@@ -39,9 +39,12 @@ private:
   void ReplyOk(const AddrPort &addr, const std::string &msg) const;
   void ReplyErr(const AddrPort &addr, const std::string &msg) const;
 
+  void SendMsgToClient(const Client &client, const std::string &msg) const;
+  void SendMsgToAllClients(const std::string &msg) const;
+
   void HandleClientMessage(const AddrPort &addr, const std::string &msg);
-  void HandleServerMessage(const AddrPort &src, const std::string &msg);
-  void ForwardMessage(const std::string &msg) const;
+  void HandleServerMessage(const AddrPort &addr, const std::string &msg);
+  void ForwardMsgToServers(const std::string &msg) const;
 
   void Join(const AddrPort &addr, const std::string &arg);
   void Nick(const AddrPort &addr, const std::string &arg);
