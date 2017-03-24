@@ -3,7 +3,7 @@
 #include "loguru.hpp"
 #include "rang.hpp"
 
-#include "server.hpp"
+#include "servernode.hpp"
 
 void ConfigureParser(cli::Parser &parser) {
   parser.set_required<std::vector<std::string>>(
@@ -54,9 +54,9 @@ int main(int argc, char *argv[]) {
   }
 
   // Construct and run server
-  Server server(id, order);
-  server.Init(config);
-  server.Run();
+  ServerNode node(id, order);
+  node.Init(config);
+  node.Run();
 
   return EXIT_SUCCESS;
 }

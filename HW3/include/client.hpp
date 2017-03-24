@@ -1,19 +1,22 @@
 #ifndef CLIENT_HPP
 #define CLIENT_HPP
 
-#include "addrport.hpp"
+#include "address.hpp"
 #include <string>
 
+/**
+ * @brief The Client class
+ */
 class Client {
 public:
-  explicit Client(const AddrPort &addr)
+  explicit Client(const Address &addr)
       : addr_(addr), nick_(addr.full()), room_(-1) {}
-  Client(const AddrPort &addr, int room)
+  Client(const Address &addr, int room)
       : addr_(addr), nick_(addr.full()), room_(room) {}
-  Client(const AddrPort &addr, const std::string &nick)
+  Client(const Address &addr, const std::string &nick)
       : addr_(addr), nick_(nick), room_(-1) {}
 
-  const AddrPort addr() const { return addr_; }
+  const Address addr() const { return addr_; }
 
   void set_nick(const std::string &nick) { nick_ = nick; }
   const std::string &nick() const { return nick_; }
@@ -31,7 +34,7 @@ public:
   }
 
 private:
-  AddrPort addr_;
+  Address addr_;
   std::string nick_;
   int room_;
 };

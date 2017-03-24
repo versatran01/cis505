@@ -1,4 +1,4 @@
-#include "server.hpp"
+#include "servernode.hpp"
 #include "chatutils.hpp"
 #include "loguru.hpp"
 #include "lpi.h"
@@ -9,7 +9,7 @@ namespace fs = std::experimental::filesystem;
 
 static constexpr int kMaxBufSize = 1024;
 
-std::vector<ServerAddrPort> ParseConfig(const std::string &config) {
+std::vector<Server> ParseConfig(const std::string &config) {
   fs::path cwd(fs::current_path());
   LOG_F(INFO, "cwd, path={%s}", cwd.c_str());
   fs::path config_file = cwd / config;
@@ -17,7 +17,7 @@ std::vector<ServerAddrPort> ParseConfig(const std::string &config) {
     throw std::invalid_argument("Config doesn't exist.");
   }
 
-  std::vector<ServerAddrPort> server_list;
+  std::vector<Server> server_list;
   std::fstream infile(config_file);
   std::string line;
   while (std::getline(infile, line)) {
@@ -30,14 +30,14 @@ std::vector<ServerAddrPort> ParseConfig(const std::string &config) {
 
     // Try to split each line input forward and binding address and port
     std::string forward_addr_port, binding_addr_port;
-    std::tie(forward_addr_port, binding_addr_port) = GetForwardBinding(line);
+    std::tie(forward_addr_port, binding_addr_port) = GetServerAddress(line);
     //    LOG_F(INFO, "forward={%s}, binding={%s}", forward_addr_port.c_str(),
     //          binding_addr_port.c_str());
 
     // Parse Addr and port and add to server list
     try {
-      const auto forward = ParseAddrPort(forward_addr_port);
-      const auto binding = ParseAddrPort(binding_addr_port);
+      const auto forward = ParseAddress(forward_addr_port);
+      const auto binding = ParseAddress(binding_addr_port);
       server_list.emplace_back(forward, binding);
       LOG_F(INFO, "forward={%s}, binding={%s}", forward.full().c_str(),
             binding.full().c_str());
@@ -50,7 +50,7 @@ std::vector<ServerAddrPort> ParseConfig(const std::string &config) {
   return server_list;
 }
 
-Server::Server(int id, const std::string &order) : id_(id) {
+ServerNode::ServerNode(int id, const std::string &order) : id_(id) {
   if (order == "unordered") {
     order_ = Order::UNORDERD;
     LOG_F(INFO, "unordered");
@@ -66,12 +66,12 @@ Server::Server(int id, const std::string &order) : id_(id) {
   }
 }
 
-void Server::Init(const std::string &config) {
+void ServerNode::Init(const std::string &config) {
   ReadConfig(config);
   SetupConnection();
 }
 
-void Server::SetupConnection() {
+void ServerNode::SetupConnection() {
   // Setup connection
   const auto &binding = servers_[index()].binding();
   fd_ = socket(AF_INET, SOCK_DGRAM, 0);
@@ -90,7 +90,7 @@ void Server::SetupConnection() {
   LOG_F(INFO, "[S%d] Server addr={%s}", id(), binding.full().c_str());
 }
 
-void Server::ReadConfig(const std::string &config) {
+void ServerNode::ReadConfig(const std::string &config) {
   try {
     servers_ = ParseConfig(config);
   } catch (const std::invalid_argument &err) {
@@ -100,7 +100,7 @@ void Server::ReadConfig(const std::string &config) {
   LOG_F(INFO, "Total servers, n={%zu}", n_servers());
 }
 
-void Server::Run() {
+void ServerNode::Run() {
   while (true) {
     struct sockaddr_in src;
     socklen_t srclen = sizeof(src);
@@ -115,29 +115,25 @@ void Server::Run() {
     // Null terminate buffer
     buffer[nrecv] = 0;
     std::string msg(buffer, nrecv);
-    const auto src_addr = GetAddrPort(src);
+    const auto src_addr = MakeAddress(src);
     LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}, addr={%s}", id(), msg.c_str(),
           nrecv, src_addr.full().c_str());
 
     // Check src address
-    const auto src_index = GetServerIndex(src_addr);
-    if (src_index < 0) {
+    if (IsFromServer(src_addr)) {
+      LOG_F(INFO, "[S%d] Msg from server, addr={%s}", id(),
+            src_addr.full().c_str());
+      HandleServerMessage(src_addr, msg);
+    } else {
       LOG_F(INFO, "[S%d] Msg from client, addr={%s}", id(),
             src_addr.full().c_str());
       HandleClientMessage(src_addr, msg);
-    } else {
-      LOG_F(INFO, "[S%d] Msg from server, addr={%s}", id(),
-            src_addr.full().c_str());
-      // TODO message from server
-      HandleServerMessage(src_addr, msg);
     }
   }
 }
 
-int Server::GetServerIndex(const AddrPort &addr) const {
-  auto cmp_addr = [&](const ServerAddrPort &srv) {
-    return srv.binding() == addr;
-  };
+int ServerNode::GetServerIndex(const Address &addr) const {
+  auto cmp_addr = [&](const Server &srv) { return srv.binding() == addr; };
   auto it = std::find_if(servers_.begin(), servers_.end(), cmp_addr);
   if (it == servers_.end()) {
     return -1;
@@ -147,7 +143,7 @@ int Server::GetServerIndex(const AddrPort &addr) const {
   }
 }
 
-int Server::GetClientIndex(const AddrPort &addr) const {
+int ServerNode::GetClientIndex(const Address &addr) const {
   auto cmp_addr = [&](const Client &client) { return client.addr() == addr; };
   auto it = std::find_if(clients_.begin(), clients_.end(), cmp_addr);
   if (it == clients_.end()) {
@@ -158,7 +154,8 @@ int Server::GetClientIndex(const AddrPort &addr) const {
   }
 }
 
-void Server::HandleClientMessage(const AddrPort &addr, const std::string &msg) {
+void ServerNode::HandleClientMessage(const Address &addr,
+                                     const std::string &msg) {
   if (msg.empty()) {
     LOG_F(WARNING, "[S%d] empty string", id());
     return;
@@ -197,18 +194,18 @@ void Server::HandleClientMessage(const AddrPort &addr, const std::string &msg) {
   }
 }
 
-void Server::SendMsgToClient(const Client &client,
-                             const std::string &msg) const {
+void ServerNode::SendMsgToClient(const Client &client,
+                                 const std::string &msg) const {
   SendTo(client.addr(), client.nick2() + msg);
 }
 
-void Server::SendMsgToAllClients(const std::string &msg) const {
+void ServerNode::SendMsgToAllClients(const std::string &msg) const {
   for (const Client &client : clients_) {
     SendMsgToClient(client, msg);
   }
 }
 
-void Server::ForwardMsgToServers(const std::string &msg) const {
+void ServerNode::ForwardMsgToServers(const std::string &msg) const {
   for (size_t i = 0; i < servers_.size(); ++i) {
     const auto server = servers_[i];
     const auto this_server = index();
@@ -219,7 +216,7 @@ void Server::ForwardMsgToServers(const std::string &msg) const {
   }
 }
 
-void Server::SendTo(const AddrPort &addr, const std::string &msg) const {
+void ServerNode::SendTo(const Address &addr, const std::string &msg) const {
   auto dest = MakeSockAddrInet(addr);
   auto nsend = sendto(fd_, msg.c_str(), msg.size(), 0, (struct sockaddr *)&dest,
                       sizeof(dest));
@@ -235,15 +232,15 @@ void Server::SendTo(const AddrPort &addr, const std::string &msg) const {
   }
 }
 
-void Server::ReplyOk(const AddrPort &addr, const std::string &msg) const {
+void ServerNode::ReplyOk(const Address &addr, const std::string &msg) const {
   SendTo(addr, "+OK " + msg);
 }
 
-void Server::ReplyErr(const AddrPort &addr, const std::string &msg) const {
+void ServerNode::ReplyErr(const Address &addr, const std::string &msg) const {
   SendTo(addr, "-ERR " + msg);
 }
 
-void Server::Join(const AddrPort &addr, const std::string &arg) {
+void ServerNode::Join(const Address &addr, const std::string &arg) {
   const int room = std::atoi(arg.c_str());
   if (room <= 0) {
     LOG_F(ERROR, "[S%d] Invalid room number, arg={%s}", id(), arg.c_str());
@@ -277,7 +274,7 @@ void Server::Join(const AddrPort &addr, const std::string &arg) {
   }
 }
 
-void Server::Nick(const AddrPort &addr, const std::string &arg) {
+void ServerNode::Nick(const Address &addr, const std::string &arg) {
   if (arg.empty()) {
     LOG_F(ERROR, "[S%d] No nick name provided", id());
     ReplyErr(addr, "You provided an empty nick name");
@@ -300,7 +297,7 @@ void Server::Nick(const AddrPort &addr, const std::string &arg) {
   ReplyOk(addr, "Nick name set to '" + arg + "'");
 }
 
-void Server::Part(const AddrPort &addr) {
+void ServerNode::Part(const Address &addr) {
   // Check if this client exists in the client list
   const auto client_index = GetClientIndex(addr);
   if (client_index < 0) {
@@ -321,7 +318,7 @@ void Server::Part(const AddrPort &addr) {
   }
 }
 
-void Server::Quit(const AddrPort &addr) {
+void ServerNode::Quit(const Address &addr) {
   const auto client_index = GetClientIndex(addr);
   if (client_index < 0) {
     LOG_F(WARNING, "[S%d] Client doesn't exists", id());
@@ -337,5 +334,11 @@ void Server::Quit(const AddrPort &addr) {
   }
 }
 
-void Server::HandleServerMessage(const AddrPort &addr, const std::string &msg) {
+void ServerNode::HandleServerMessage(const Address &addr,
+                                     const std::string &msg) {}
+
+bool ServerNode::IsFromServer(const Address &addr) const {
+  auto cmp_addr = [&](const Server &srv) { return srv.forward() == addr; };
+  auto it = std::find_if(servers_.begin(), servers_.end(), cmp_addr);
+  return it != servers_.end();
 }

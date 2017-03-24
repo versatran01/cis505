@@ -8,10 +8,10 @@ OBJ_DIR = obj
 CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -Wall -g
 LFLAGS = -ldl -lstdc++fs
 
-_DEPS = loguru.hpp rang.hpp string_algorithms.hpp chatutils.hpp
+_DEPS = loguru.hpp rang.hpp string_algorithms.hpp chatutils.hpp servernode.hpp client.hpp address.hpp
 DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
 
- _OBJS = string_algorithms.o chatutils.o lpi.o server.o
+ _OBJS = string_algorithms.o chatutils.o lpi.o servernode.o
 OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
 
 

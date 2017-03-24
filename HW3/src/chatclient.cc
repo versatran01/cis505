@@ -42,9 +42,9 @@ int main(int argc, char *argv[]) {
   // Parse server address and port
   const auto addr_port = parser.get<std::string>("");
   LOG_F(INFO, "argv: %s", addr_port.c_str());
-  AddrPort server;
+  Address server;
   try {
-    server = ParseAddrPort(addr_port);
+    server = ParseAddress(addr_port);
     LOG_F(INFO, "addr: %s, port: %d", server.addr().c_str(), server.port());
   } catch (const std::invalid_argument &err) {
     LOG_F(ERROR, err.what());
@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
       buffer[nrecv] = 0;
       LOG_F(INFO, "[C%d] Recv from socket, str={%s}, n={%d}", sock_fd, buffer,
             nrecv);
-      const auto recv_server = GetAddrPort(src_addr);
+      const auto recv_server = MakeAddress(src_addr);
       LOG_F(INFO, "[C%d] Recv server, addr={%s}", sock_fd,
             recv_server.full().c_str());
 

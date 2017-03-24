@@ -1,16 +1,38 @@
 #ifndef CHATUTILS_H
 #define CHATUTILS_H
 
-#include "addrport.hpp"
+#include "address.hpp"
 #include <arpa/inet.h>
 #include <regex>
 #include <string>
 
-AddrPort ParseAddrPort(const std::string &addr_port);
-std::tuple<std::string, std::string> GetForwardBinding(const std::string &line);
+/**
+ * @brief ParseAddress Generate address from string
+ * @param addr_str String in the form of addr:port
+ * @return an Address instance
+ */
+Address ParseAddress(const std::string &addr_str);
 
-sockaddr_in MakeSockAddrInet(const AddrPort &addr_port);
+/**
+ * @brief GetServerAddress
+ * @param line
+ * @return
+ */
+std::tuple<std::string, std::string> GetServerAddress(const std::string &line);
+
+/**
+ * @brief MakeSockAddrInet Make sockaddr_in from Address
+ * @param addr
+ * @return
+ */
+sockaddr_in MakeSockAddrInet(const Address &addr);
 sockaddr_in MakeSockAddrInet(const std::string &addr, int port);
-AddrPort GetAddrPort(const sockaddr_in &sock_addr);
+
+/**
+ * @brief GetAddress Make address from sockaddr_in
+ * @param sock_addr
+ * @return
+ */
+Address MakeAddress(const sockaddr_in &sock_addr);
 
 #endif // CHATUTILS_H
