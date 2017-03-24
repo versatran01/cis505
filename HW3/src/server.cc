@@ -39,8 +39,8 @@ std::vector<ServerAddrPort> ParseConfig(const std::string &config) {
       const auto forward = ParseAddrPort(forward_addr_port);
       const auto binding = ParseAddrPort(binding_addr_port);
       server_list.emplace_back(forward, binding);
-      LOG_F(INFO, "forward={%s}, binding={%s}", forward.addr_port().c_str(),
-            binding.addr_port().c_str());
+      LOG_F(INFO, "forward={%s}, binding={%s}", forward.full().c_str(),
+            binding.full().c_str());
     } catch (const std::invalid_argument &err) {
       LOG_F(ERROR, err.what());
       continue;
@@ -87,7 +87,7 @@ void Server::SetupConnection() {
     errExit("Failed to bind to address");
   }
 
-  LOG_F(INFO, "[S%d] Server addr={%s}", index_, binding.addr_port().c_str());
+  LOG_F(INFO, "[S%d] Server addr={%s}", index_, binding.full().c_str());
 }
 
 void Server::ReadConfig(const std::string &config) {
@@ -117,13 +117,13 @@ void Server::Run() {
     std::string msg(buffer, nrecv);
     const auto src_addr_port = GetAddrPort(src_addr);
     LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}, addr={%s}", index_, msg.c_str(),
-          nrecv, src_addr_port.addr_port().c_str());
+          nrecv, src_addr_port.full().c_str());
 
     // Check src address
     auto src_index = GetServerIndex(src_addr_port);
     if (src_index < 0) {
       LOG_F(INFO, "[S%d] Msg from client, addr={%s}", index_,
-            src_addr_port.addr_port().c_str());
+            src_addr_port.full().c_str());
       HandleClientMessage(src_addr_port, msg);
     } else {
       // TODO message from server
@@ -199,13 +199,13 @@ void Server::SendTo(const AddrPort &addr_port, const std::string &msg) const {
                       sizeof(dest));
   if (nsend < 0) {
     LOG_F(ERROR, "[S%d] Send failed, dest={%s}", index_,
-          addr_port.addr_port().c_str());
+          addr_port.full().c_str());
   } else if (nsend != msg.size()) {
     LOG_F(WARNING,
           "[S%d] Byte sent doesn't match msg size, nsend={%zu}, nmsg={%zu}",
           index_, nsend, msg.size());
   } else {
     LOG_F(INFO, "[S%d] Msg sent, str={%s}, addr={%s}", index_, msg.c_str(),
-          addr_port.addr_port().c_str());
+          addr_port.full().c_str());
   }
 }
