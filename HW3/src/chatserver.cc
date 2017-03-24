@@ -7,8 +7,8 @@
 
 void ConfigureParser(cli::Parser &parser) {
   parser.set_required<std::vector<std::string>>(
-      "", "config file and index",
-      "Config file of forwarding address and index of server");
+      "", "config file and id",
+      "Config file of forwarding address and id of server");
   parser.set_optional<bool>("v", "verbose", false,
                             "Print to stdout when sth important happnes.");
   parser.set_optional<bool>("l", "log to file", false,
@@ -35,26 +35,26 @@ int main(int argc, char *argv[]) {
   }
 
   // Get config file and index
-  const auto config_and_index = parser.get<std::vector<std::string>>("");
-  if (config_and_index.size() != 2) {
+  const auto config_and_id = parser.get<std::vector<std::string>>("");
+  if (config_and_id.size() != 2) {
     LOG_F(ERROR, "Wrong number of positional arguments.");
     return EXIT_FAILURE;
   }
-  const auto config = config_and_index[0];
-  const auto index = std::atoi(config_and_index[1].c_str());
-  LOG_F(INFO, "argv: %s %d", config.c_str(), index);
+  const auto config = config_and_id[0];
+  const auto id = std::atoi(config_and_id[1].c_str());
+  LOG_F(INFO, "argv: %s %d", config.c_str(), id);
 
   // Get order mode
   const auto order = parser.get<std::string>("o");
 
   // Check index
-  if (index <= 0) {
+  if (id <= 0) {
     LOG_F(ERROR, "Invalid server index.");
     return EXIT_FAILURE;
   }
 
   // Construct and run server
-  Server server(index, order);
+  Server server(id, order);
   server.Init(config);
   server.Run();
 
