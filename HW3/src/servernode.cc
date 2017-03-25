@@ -200,7 +200,7 @@ void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
     j["nick"] = client.nick();
     j["room"] = client.room();
     j["msg"] = msg;
-    ForwardMsgToServers(client, j.dump());
+    Multicast(client, j.dump());
   }
 }
 
@@ -209,14 +209,13 @@ void ServerNode::SendMsgToClient(const Client &client,
   SendTo(client.addr(), msg);
 }
 
-void ServerNode::SendMsgToAllClients(const std::string &msg) const {
+void ServerNode::Deliver(const std::string &msg) const {
   for (const Client &client : clients_) {
     SendMsgToClient(client, msg);
   }
 }
 
-void ServerNode::ForwardMsgToServers(const Client &client,
-                                     const std::string &msg) const {
+void ServerNode::Multicast(const Client &client, const std::string &msg) const {
   for (const Server &server : servers_) {
     SendTo(server.forward(), msg);
     LOG_F(INFO, "[S%d] Send to forward, addr={%s}", id(),

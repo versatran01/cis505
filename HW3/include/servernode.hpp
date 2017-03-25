@@ -50,11 +50,11 @@ private:
   void ReplyErr(const Client &client, const std::string &msg) const;
 
   void SendMsgToClient(const Client &client, const std::string &msg) const;
-  void SendMsgToAllClients(const std::string &msg) const;
+  void Deliver(const std::string &msg) const;
 
   void HandleClientMsg(const Address &addr, const std::string &msg);
   void HandleServerMsg(const Address &addr, const std::string &msg);
-  void ForwardMsgToServers(const Client &client, const std::string &msg) const;
+  void Multicast(const Client &client, const std::string &msg) const;
 
   void Join(Client &client, const std::string &arg);
   void Nick(Client &client, const std::string &arg);
