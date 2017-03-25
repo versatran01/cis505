@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
     server = ParseAddress(addr_port);
     LOG_F(INFO, "addr: %s, port: %d", server.addr().c_str(), server.port());
   } catch (const std::invalid_argument &err) {
-    LOG_F(ERROR, err.what());
+    LOG_F(ERROR, "%s", err.what());
     return EXIT_FAILURE;
   }
 
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
       // Check whether we received from the same server
       if (recv_server != server) {
         LOG_F(WARNING, "[C%d] send_addr={%s}, recv_addr={%s}", sock_fd,
-              server.full_str(), recv_server.full_str().c_str());
+              server.full_str().c_str(), recv_server.full_str().c_str());
       }
 
       // Extract first token

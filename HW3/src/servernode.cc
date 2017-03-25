@@ -1,11 +1,13 @@
 #include "servernode.hpp"
 #include "chatutils.hpp"
+#include "json.hpp"
 #include "loguru.hpp"
 #include "lpi.h"
 #include "string_algorithms.hpp"
 #include <experimental/filesystem>
 #include <fstream>
 namespace fs = std::experimental::filesystem;
+using json = nlohmann::json;
 
 static constexpr int kMaxBufSize = 1024;
 
@@ -40,7 +42,7 @@ std::vector<Server> ParseConfig(const std::string &config) {
       LOG_F(INFO, "forward={%s}, binding={%s}", forward.full_str().c_str(),
             binding.full_str().c_str());
     } catch (const std::invalid_argument &err) {
-      LOG_F(ERROR, err.what());
+      LOG_F(ERROR, "%s", err.what());
       continue;
     }
   }
@@ -92,7 +94,7 @@ void ServerNode::ReadConfig(const std::string &config) {
   try {
     servers_ = ParseConfig(config);
   } catch (const std::invalid_argument &err) {
-    LOG_F(ERROR, err.what());
+    LOG_F(ERROR, "%s", err.what());
     errExit(err.what());
   }
   LOG_F(INFO, "Total servers, n={%zu}", n_servers());
@@ -140,6 +142,23 @@ int ServerNode::GetClientIndex(const Address &addr) const {
   }
 }
 
+void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
+  auto j = json::parse(msg);
+  const std::string nick = j["nick"];
+  int room = j["room"];
+  const std::string msg1 = j["msg"];
+  LOG_F(INFO, "nick={%s}, room={%d}, msg={%s}", nick.c_str(), room,
+        msg1.c_str());
+
+  const auto full_msg = "<" + nick + "> " + msg1;
+
+  for (const Client &client : clients_) {
+    if (client.room() == room) {
+      SendMsgToClient(client, full_msg);
+    }
+  }
+}
+
 void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
   if (msg.empty()) {
     LOG_F(WARNING, "[S%d] empty string", id());
@@ -177,13 +196,17 @@ void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
     LOG_F(INFO, "[S%d] Num clients, n={%zu}", id(), n_clients());
   } else {
     // Forward message to all servers
-    ForwardMsgToServers(msg);
+    json j;
+    j["nick"] = client.nick();
+    j["room"] = client.room();
+    j["msg"] = msg;
+    ForwardMsgToServers(client, j.dump());
   }
 }
 
 void ServerNode::SendMsgToClient(const Client &client,
                                  const std::string &msg) const {
-  SendTo(client.addr(), client.nick_prefix() + msg);
+  SendTo(client.addr(), msg);
 }
 
 void ServerNode::SendMsgToAllClients(const std::string &msg) const {
@@ -192,11 +215,12 @@ void ServerNode::SendMsgToAllClients(const std::string &msg) const {
   }
 }
 
-void ServerNode::ForwardMsgToServers(const std::string &msg) const {
+void ServerNode::ForwardMsgToServers(const Client &client,
+                                     const std::string &msg) const {
   for (const Server &server : servers_) {
     SendTo(server.forward(), msg);
     LOG_F(INFO, "[S%d] Send to forward, addr={%s}", id(),
-          server.forward().full_str());
+          server.forward().full_str().c_str());
   }
 }
 
@@ -309,13 +333,6 @@ void ServerNode::Quit(Client &client) {
   // Remove client
   clients_.erase(std::remove(clients_.begin(), clients_.end(), client),
                  clients_.end());
-}
-
-void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
-  // Simply send messages to all clients with nick name
-  for (const Client &client : clients_) {
-    SendMsgToClient(client, msg);
-  }
 }
 
 bool ServerNode::IsFromServer(const Address &addr) const {

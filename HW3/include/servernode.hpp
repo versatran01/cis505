@@ -54,7 +54,7 @@ private:
 
   void HandleClientMsg(const Address &addr, const std::string &msg);
   void HandleServerMsg(const Address &addr, const std::string &msg);
-  void ForwardMsgToServers(const std::string &msg) const;
+  void ForwardMsgToServers(const Client &client, const std::string &msg) const;
 
   void Join(Client &client, const std::string &arg);
   void Nick(Client &client, const std::string &arg);

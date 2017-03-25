@@ -8,7 +8,7 @@ OBJ_DIR = obj
 CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -Wall -g
 LFLAGS = -ldl -lstdc++fs
 
-_DEPS = loguru.hpp rang.hpp string_algorithms.hpp chatutils.hpp servernode.hpp client.hpp address.hpp
+_DEPS = loguru.hpp rang.hpp json.hpp string_algorithms.hpp chatutils.hpp servernode.hpp client.hpp address.hpp
 DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
 
  _OBJS = string_algorithms.o chatutils.o lpi.o servernode.o
@@ -36,7 +36,7 @@ udpechoserver: $(OBJ_DIR)/udpechoserver.o
 
 pack:
 	rm -f submit-hw3.zip
-	zip -r submit-hw3.zip README Makefile *.c* *.h*
+	zip -r submit-hw3.zip README Makefile include/* src/*
 
 clean::
 	rm -fv $(TARGETS) *~ *.o submit-hw3.zip
