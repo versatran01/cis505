@@ -150,7 +150,7 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
   m.nick = j["nick"];
   m.room = j["room"];
   m.msg = j["msg"];
-  m.addr = addr.addr();
+  m.addr = j["addr"];
 
   LOG_F(INFO, "[S%d] Prase msg, nick={%s}, room={%d}, msg={%s}", id(),
         m.nick.c_str(), m.room, m.msg.c_str());
@@ -241,6 +241,7 @@ void ServerNode::Multicast(Client &client, const std::string &msg) const {
   j["msg"] = msg;
   if (order_ == Order::FIFO) {
     j["seq"] = client.IncSeq();
+    j["addr"] = client.addr_str();
   }
 
   for (const Server &server : servers_) {

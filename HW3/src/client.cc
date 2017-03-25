@@ -10,6 +10,6 @@ int Client::LeaveRoom() {
 int Client::IncSeq() {
   CHECK_F(room_ > 0, "Has to be a valid room");
   int seq = seqs_[room_]; // will be 0 if this room doesn't exist previouslly
-  ++seqs_[room_];         // increment seq number of this room
+  seqs_[room_]++;
   return seq;
 }
