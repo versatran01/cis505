@@ -6,6 +6,8 @@
 
 #include "address.hpp"
 #include "client.hpp"
+#include "holdbackqueue.hpp"
+#include "message.hpp"
 
 enum class Order { UNORDERD, FIFO, TOTAL };
 
@@ -73,6 +75,8 @@ private:
   std::vector<Server> servers_;
   std::vector<Client> clients_;
   Order order_;
+  std::map<std::string, std::map<int, int>> seq_record_;
+  HoldbackQueueFIFO hbq_fifo_;
 };
 
 #endif // SERVER_HPP

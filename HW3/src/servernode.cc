@@ -76,15 +76,17 @@ void ServerNode::SetupConnection() {
   const Address &bind_addr = servers_[index()].bind_addr();
   fd_ = socket(AF_INET, SOCK_DGRAM, 0);
   if (fd_ == -1) {
-    LOG_F(ERROR, "[S%d] Failed to create socket", id());
-    errExit("Failed to create socket.");
+    const auto msg = "Failed to create socket";
+    LOG_F(ERROR, "%s", msg);
+    errExit(msg);
   }
 
   // Bind to binding address
   auto serv_addr = MakeSockAddrInet(bind_addr);
   if (bind(fd_, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) == -1) {
-    LOG_F(ERROR, "[S%d] Failed to bind to address", id());
-    errExit("Failed to bind to address");
+    const auto msg = "Failed to bind to address";
+    LOG_F(ERROR, "%s", msg);
+    errExit(msg);
   }
 
   LOG_F(INFO, "[S%d] Server addr={%s}", id(), bind_addr.addr().c_str());
@@ -144,20 +146,51 @@ int ServerNode::GetClientIndex(const Address &addr) const {
 
 void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
   auto j = json::parse(msg);
-  const std::string nick = j["nick"];
-  int room = j["room"];
-  const std::string msg1 = j["msg"];
-  LOG_F(INFO, "nick={%s}, room={%d}, msg={%s}", nick.c_str(), room,
-        msg1.c_str());
+  Message m;
+  m.nick = j["nick"];
+  m.room = j["room"];
+  m.msg = j["msg"];
+  m.addr = addr.addr();
 
-  const auto full_msg = "<" + nick + "> " + msg1;
+  LOG_F(INFO, "[S%d] Prase msg, nick={%s}, room={%d}, msg={%s}", id(),
+        m.nick.c_str(), m.room, m.msg.c_str());
 
-  Deliver(room, full_msg);
+  if (order_ == Order::UNORDERD) {
+    Deliver(m.room, m.FullMsg());
+  } else if (order_ == Order::FIFO) {
+    m.seq = j["seq"];
+    // Put message in holdback queue
+    hbq_fifo_.AddMessage(m);
+    // Get the expected seq number of this message
+    // expected_seq will be zero if it doesn't exist
+    int &exp_seq = seq_record_[m.addr][m.room];
+    LOG_F(INFO, "[S%d] Expected seq={%d}, sender={%s}, room={%d}", id(),
+          exp_seq, m.addr.c_str(), m.room);
+    // If there is a message in holdback queue that matches addr, room and seq
+    // We will deliver that
+    int msg_index;
+    while ((msg_index = hbq_fifo_.GetMsgIndex(m.addr, m.room, exp_seq)) >= 0) {
+      const auto &msg_td = hbq_fifo_.Get(msg_index);
+      LOG_F(INFO, "[S%d] next message to deliver, seq={%d}", id(), msg_td.seq);
+      Deliver(m.room, msg_td.FullMsg());
+      hbq_fifo_.RemoveByIndex(msg_index);
+      LOG_F(INFO, "[S%d] queue size, n={%zu}", id(), hbq_fifo_.size());
+      ++exp_seq;
+    }
+  }
+}
+
+void ServerNode::Deliver(int room, const std::string &msg) const {
+  for (const Client &client : clients_) {
+    if (client.InRoom(room)) {
+      SendMsgToClient(client, msg);
+    }
+  }
 }
 
 void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
   if (msg.empty()) {
-    LOG_F(WARNING, "[S%d] empty string", id());
+    LOG_F(WARNING, "empty string");
     return;
   }
 
@@ -201,14 +234,6 @@ void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
   }
 }
 
-void ServerNode::Deliver(int room, const std::string &msg) const {
-  for (const Client &client : clients_) {
-    if (client.InRoom(room)) {
-      SendMsgToClient(client, msg);
-    }
-  }
-}
-
 void ServerNode::Multicast(Client &client, const std::string &msg) const {
   json j;
   j["nick"] = client.nick();
@@ -217,6 +242,7 @@ void ServerNode::Multicast(Client &client, const std::string &msg) const {
   if (order_ == Order::FIFO) {
     j["seq"] = client.IncSeq();
   }
+
   for (const Server &server : servers_) {
     SendTo(server.fwd_addr(), j.dump());
     LOG_F(INFO, "[S%d] Send to forward, addr={%s}", id(),

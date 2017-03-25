@@ -8,22 +8,15 @@ OBJ_DIR = obj
 CFLAGS = -pthread -std=c++14 -I$(INC_DIR) -Wall -g
 LFLAGS = -ldl -lstdc++fs
 
-_DEPS = loguru.hpp rang.hpp json.hpp string_algorithms.hpp chatutils.hpp servernode.hpp client.hpp address.hpp
+_DEPS = loguru.hpp rang.hpp json.hpp string_algorithms.hpp chatutils.hpp servernode.hpp client.hpp address.hpp message.hpp holdbackqueue.hpp
 DEPS = $(patsubst %,$(INC_DIR)/%,$(_DEPS))
 
- _OBJS = string_algorithms.o chatutils.o lpi.o servernode.o client.o
+_OBJS = chatutils.o lpi.o servernode.o client.o string_algorithms.o holdbackqueue.o
 OBJS = $(patsubst %,$(OBJ_DIR)/%,$(_OBJS))
-
 
 
 .PHONY: all
 all: $(TARGETS)
-
-_obj:
-	mkdir -p $(OBJ_DIR)
-
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS) _obj
-	$(CC) $(CFLAGS) $< -c -o $@ 
 
 chatserver: $(OBJS) $(OBJ_DIR)/chatserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
@@ -33,6 +26,12 @@ chatclient: $(OBJS) $(OBJ_DIR)/chatclient.o
 
 udpechoserver: $(OBJ_DIR)/udpechoserver.o
 	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cc $(DEPS) _obj
+	$(CC) $(CFLAGS) $< -c -o $@ 
+
+_obj:
+	mkdir -p $(OBJ_DIR)
 
 pack:
 	rm -f submit-hw3.zip
