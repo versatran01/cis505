@@ -15,7 +15,9 @@ public:
     return !(*this == other);
   }
 
-  const std::string full() const { return addr_ + ":" + std::to_string(port_); }
+  const std::string full_str() const {
+    return addr_ + ":" + std::to_string(port_);
+  }
   const std::string &addr() const { return addr_; }
   const int port() const { return port_; }
 

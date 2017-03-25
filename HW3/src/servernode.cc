@@ -37,8 +37,8 @@ std::vector<Server> ParseConfig(const std::string &config) {
       const auto forward = ParseAddress(forward_addr);
       const auto binding = ParseAddress(binding_addr);
       servers.emplace_back(forward, binding);
-      LOG_F(INFO, "forward={%s}, binding={%s}", forward.full().c_str(),
-            binding.full().c_str());
+      LOG_F(INFO, "forward={%s}, binding={%s}", forward.full_str().c_str(),
+            binding.full_str().c_str());
     } catch (const std::invalid_argument &err) {
       LOG_F(ERROR, err.what());
       continue;
@@ -71,7 +71,7 @@ void ServerNode::Init(const std::string &config) {
 
 void ServerNode::SetupConnection() {
   // Setup connection
-  const auto &binding = servers_[index()].binding();
+  const Address &binding = servers_[index()].binding();
   fd_ = socket(AF_INET, SOCK_DGRAM, 0);
   if (fd_ == -1) {
     LOG_F(ERROR, "[S%d] Failed to create socket", id());
@@ -85,7 +85,7 @@ void ServerNode::SetupConnection() {
     errExit("Failed to bind to address");
   }
 
-  LOG_F(INFO, "[S%d] Server addr={%s}", id(), binding.full().c_str());
+  LOG_F(INFO, "[S%d] Server addr={%s}", id(), binding.full_str().c_str());
 }
 
 void ServerNode::ReadConfig(const std::string &config) {
@@ -108,11 +108,11 @@ void ServerNode::Run() {
 
     if (IsFromServer(addr)) {
       LOG_F(INFO, "[S%d] Msg from server, addr={%s}", id(),
-            addr.full().c_str());
-      //      HandleServerMessage(src_addr, msg);
+            addr.full_str().c_str());
+      HandleServerMsg(addr, msg);
     } else {
       LOG_F(INFO, "[S%d] Msg from client, addr={%s}", id(),
-            addr.full().c_str());
+            addr.full_str().c_str());
       HandleClientMsg(addr, msg);
     }
   }
@@ -151,7 +151,8 @@ void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
   if (client_index < 0) {
     clients_.emplace_back(addr);
     client_index = clients_.size() - 1;
-    LOG_F(INFO, "[S%d] Add a new client, addr={%s}", id(), addr.full().c_str());
+    LOG_F(INFO, "[S%d] Add a new client, addr={%s}", id(),
+          addr.full_str().c_str());
   }
   Client &client = clients_[client_index];
 
@@ -176,13 +177,13 @@ void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
     LOG_F(INFO, "[S%d] Num clients, n={%zu}", id(), n_clients());
   } else {
     // Forward message to all servers
-    LOG_F(INFO, "TODO");
+    ForwardMsgToServers(msg);
   }
 }
 
 void ServerNode::SendMsgToClient(const Client &client,
                                  const std::string &msg) const {
-  SendTo(client.addr(), client.nick2() + msg);
+  SendTo(client.addr(), client.nick_prefix() + msg);
 }
 
 void ServerNode::SendMsgToAllClients(const std::string &msg) const {
@@ -195,7 +196,7 @@ void ServerNode::ForwardMsgToServers(const std::string &msg) const {
   for (const Server &server : servers_) {
     SendTo(server.forward(), msg);
     LOG_F(INFO, "[S%d] Send to forward, addr={%s}", id(),
-          server.forward().full());
+          server.forward().full_str());
   }
 }
 
@@ -204,7 +205,7 @@ bool ServerNode::SendTo(const Address &addr, const std::string &msg) const {
   auto nsend = sendto(fd_, msg.c_str(), msg.size(), 0, (struct sockaddr *)&dest,
                       sizeof(dest));
   if (nsend < 0) {
-    LOG_F(ERROR, "[S%d] Send failed, dest={%s}", id(), addr.full().c_str());
+    LOG_F(ERROR, "[S%d] Send failed, dest={%s}", id(), addr.full_str().c_str());
     return false;
   } else if (nsend != static_cast<int>(msg.size())) {
     LOG_F(WARNING,
@@ -213,7 +214,7 @@ bool ServerNode::SendTo(const Address &addr, const std::string &msg) const {
     return false;
   } else {
     LOG_F(INFO, "[S%d] Msg sent, str={%s}, addr={%s}", id(), msg.c_str(),
-          addr.full().c_str());
+          addr.full_str().c_str());
     return true;
   }
 }
@@ -234,7 +235,7 @@ bool ServerNode::RecvFrom(Address &addr, std::string &msg) const {
   msg = std::string(buffer, nrecv);
   addr = MakeAddress(src);
   LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}, addr={%s}", id(), msg.c_str(),
-        nrecv, addr.full().c_str());
+        nrecv, addr.full_str().c_str());
   return true;
 }
 
@@ -310,8 +311,12 @@ void ServerNode::Quit(Client &client) {
                  clients_.end());
 }
 
-void ServerNode::HandleServerMessage(const Address &addr,
-                                     const std::string &msg) {}
+void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
+  // Simply send messages to all clients with nick name
+  for (const Client &client : clients_) {
+    SendMsgToClient(client, msg);
+  }
+}
 
 bool ServerNode::IsFromServer(const Address &addr) const {
   auto cmp_addr = [&](const Server &srv) { return srv.forward() == addr; };

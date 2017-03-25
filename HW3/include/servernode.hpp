@@ -53,7 +53,7 @@ private:
   void SendMsgToAllClients(const std::string &msg) const;
 
   void HandleClientMsg(const Address &addr, const std::string &msg);
-  void HandleServerMessage(const Address &addr, const std::string &msg);
+  void HandleServerMsg(const Address &addr, const std::string &msg);
   void ForwardMsgToServers(const std::string &msg) const;
 
   void Join(Client &client, const std::string &arg);

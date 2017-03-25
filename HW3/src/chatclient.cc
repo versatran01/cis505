@@ -144,12 +144,12 @@ int main(int argc, char *argv[]) {
             nrecv);
       const auto recv_server = MakeAddress(src_addr);
       LOG_F(INFO, "[C%d] Recv server, addr={%s}", sock_fd,
-            recv_server.full().c_str());
+            recv_server.full_str().c_str());
 
       // Check whether we received from the same server
       if (recv_server != server) {
         LOG_F(WARNING, "[C%d] send_addr={%s}, recv_addr={%s}", sock_fd,
-              server.full(), recv_server.full().c_str());
+              server.full_str(), recv_server.full_str().c_str());
       }
 
       // Extract first token

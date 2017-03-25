@@ -12,9 +12,9 @@ class Client {
 public:
   Client() = default;
   explicit Client(const Address &addr)
-      : addr_(addr), nick_(addr.full()), room_(0) {}
+      : addr_(addr), nick_(addr.full_str()), room_(0) {}
   Client(const Address &addr, int room)
-      : addr_(addr), nick_(addr.full()), room_(room) {}
+      : addr_(addr), nick_(addr.full_str()), room_(room) {}
   Client(const Address &addr, const std::string &nick)
       : addr_(addr), nick_(nick), room_(-1) {}
 
@@ -26,11 +26,11 @@ public:
   }
 
   const Address &addr() const { return addr_; }
-  const std::string addr_str() const { return addr_.full(); }
+  const std::string addr_str() const { return addr_.full_str(); }
 
   void set_nick(const std::string &nick) { nick_ = nick; }
   const std::string &nick() const { return nick_; }
-  const std::string nick2() const { return "<" + nick_ + "> "; }
+  const std::string nick_prefix() const { return "<" + nick_ + "> "; }
 
   int room() const { return room_; }
   const std::string room_str() const { return std::to_string(room_); }
