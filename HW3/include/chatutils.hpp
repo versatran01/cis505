@@ -26,7 +26,7 @@ std::tuple<std::string, std::string> GetServerAddress(const std::string &line);
  * @return
  */
 sockaddr_in MakeSockAddrInet(const Address &addr);
-sockaddr_in MakeSockAddrInet(const std::string &addr, int port);
+sockaddr_in MakeSockAddrInet(const std::string &ip, int port);
 
 /**
  * @brief GetAddress Make address from sockaddr_in

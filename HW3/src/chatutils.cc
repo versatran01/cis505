@@ -30,14 +30,14 @@ std::tuple<std::string, std::string> GetServerAddress(const std::string &line) {
 }
 
 sockaddr_in MakeSockAddrInet(const Address &addr) {
-  return MakeSockAddrInet(addr.addr(), addr.port());
+  return MakeSockAddrInet(addr.ip(), addr.port());
 }
 
-sockaddr_in MakeSockAddrInet(const std::string &addr, int port) {
+sockaddr_in MakeSockAddrInet(const std::string &ip, int port) {
   struct sockaddr_in addr_inet;
   bzero(&addr_inet, sizeof(addr_inet));
   addr_inet.sin_family = AF_INET;
-  addr_inet.sin_addr.s_addr = inet_addr(addr.c_str());
+  addr_inet.sin_addr.s_addr = inet_addr(ip.c_str());
   addr_inet.sin_port = htons(port);
   return addr_inet;
 }

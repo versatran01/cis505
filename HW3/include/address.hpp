@@ -6,38 +6,36 @@
 class Address {
 public:
   Address() = default;
-  Address(const std::string &addr, int port) : addr_(addr), port_(port) {}
+  Address(const std::string &ip, int port) : ip_(ip), port_(port) {}
 
   inline bool operator==(const Address &other) const {
-    return addr_ == other.addr() && port_ == other.port();
+    return ip_ == other.ip() && port_ == other.port();
   }
   inline bool operator!=(const Address &other) const {
     return !(*this == other);
   }
 
-  const std::string full_str() const {
-    return addr_ + ":" + std::to_string(port_);
-  }
-  const std::string &addr() const { return addr_; }
+  const std::string addr() const { return ip_ + ":" + std::to_string(port_); }
+  const std::string &ip() const { return ip_; }
   const int port() const { return port_; }
 
 private:
-  std::string addr_;
+  std::string ip_;
   int port_;
 };
 
 class Server {
 public:
   Server() = default;
-  Server(const Address &forward, const Address &binding)
-      : forward_(forward), binding_(binding) {}
+  Server(const Address &fwd_addr, const Address &bind_addr)
+      : fwd_addr_(fwd_addr), bind_addr_(bind_addr) {}
 
-  const Address &forward() const { return forward_; }
-  const Address &binding() const { return binding_; }
+  const Address &fwd_addr() const { return fwd_addr_; }
+  const Address &bind_addr() const { return bind_addr_; }
 
 private:
-  Address forward_;
-  Address binding_;
+  Address fwd_addr_;
+  Address bind_addr_;
 };
 
 #endif // ADDRPORT_HPP
