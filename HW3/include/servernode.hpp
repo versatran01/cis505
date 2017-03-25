@@ -41,23 +41,25 @@ private:
   int GetServerIndex(const Address &addr) const;
   int GetClientIndex(const Address &addr) const;
 
-  void SendTo(const Address &addr, const std::string &msg) const;
-  void RecvFrom(Address &addr, std::string &msg) const;
+  bool SendTo(const Address &addr, const std::string &msg) const;
+  bool RecvFrom(Address &addr, std::string &msg) const;
 
   void ReplyOk(const Address &addr, const std::string &msg) const;
   void ReplyErr(const Address &addr, const std::string &msg) const;
+  void ReplyOk(const Client &client, const std::string &msg) const;
+  void ReplyErr(const Client &client, const std::string &msg) const;
 
   void SendMsgToClient(const Client &client, const std::string &msg) const;
   void SendMsgToAllClients(const std::string &msg) const;
 
-  void HandleClientMessage(const Address &addr, const std::string &msg);
+  void HandleClientMsg(const Address &addr, const std::string &msg);
   void HandleServerMessage(const Address &addr, const std::string &msg);
   void ForwardMsgToServers(const std::string &msg) const;
 
-  void Join(const Address &addr, const std::string &arg);
-  void Nick(const Address &addr, const std::string &arg);
-  void Part(const Address &addr);
-  void Quit(const Address &addr);
+  void Join(Client &client, const std::string &arg);
+  void Nick(Client &client, const std::string &arg);
+  void Part(Client &client);
+  void Quit(Client &client);
 
   /**
    * @brief IsFromServer Check whether addr is forward addr of server

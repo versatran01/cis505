@@ -2,6 +2,7 @@
 #define CLIENT_HPP
 
 #include "address.hpp"
+#include <memory>
 #include <string>
 
 /**
@@ -9,14 +10,23 @@
  */
 class Client {
 public:
+  Client() = default;
   explicit Client(const Address &addr)
-      : addr_(addr), nick_(addr.full()), room_(-1) {}
+      : addr_(addr), nick_(addr.full()), room_(0) {}
   Client(const Address &addr, int room)
       : addr_(addr), nick_(addr.full()), room_(room) {}
   Client(const Address &addr, const std::string &nick)
       : addr_(addr), nick_(nick), room_(-1) {}
 
-  const Address addr() const { return addr_; }
+  inline bool operator==(const Client &other) const {
+    return addr_ == other.addr();
+  }
+  inline bool operator!=(const Client &other) const {
+    return !(*this == other);
+  }
+
+  const Address &addr() const { return addr_; }
+  const std::string addr_str() const { return addr_.full(); }
 
   void set_nick(const std::string &nick) { nick_ = nick; }
   const std::string &nick() const { return nick_; }
@@ -36,7 +46,9 @@ public:
 private:
   Address addr_;
   std::string nick_;
-  int room_;
+  int room_ = 0;
 };
+
+using ClientPtr = std::shared_ptr<Client>;
 
 #endif // CLIENT_HPP

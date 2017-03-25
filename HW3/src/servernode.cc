@@ -17,7 +17,7 @@ std::vector<Server> ParseConfig(const std::string &config) {
     throw std::invalid_argument("Config doesn't exist.");
   }
 
-  std::vector<Server> server_list;
+  std::vector<Server> servers;
   std::fstream infile(config_file);
   std::string line;
   while (std::getline(infile, line)) {
@@ -29,16 +29,14 @@ std::vector<Server> ParseConfig(const std::string &config) {
     }
 
     // Try to split each line input forward and binding address and port
-    std::string forward_addr_port, binding_addr_port;
-    std::tie(forward_addr_port, binding_addr_port) = GetServerAddress(line);
-    //    LOG_F(INFO, "forward={%s}, binding={%s}", forward_addr_port.c_str(),
-    //          binding_addr_port.c_str());
+    std::string forward_addr, binding_addr;
+    std::tie(forward_addr, binding_addr) = GetServerAddress(line);
 
     // Parse Addr and port and add to server list
     try {
-      const auto forward = ParseAddress(forward_addr_port);
-      const auto binding = ParseAddress(binding_addr_port);
-      server_list.emplace_back(forward, binding);
+      const auto forward = ParseAddress(forward_addr);
+      const auto binding = ParseAddress(binding_addr);
+      servers.emplace_back(forward, binding);
       LOG_F(INFO, "forward={%s}, binding={%s}", forward.full().c_str(),
             binding.full().c_str());
     } catch (const std::invalid_argument &err) {
@@ -47,7 +45,7 @@ std::vector<Server> ParseConfig(const std::string &config) {
     }
   }
 
-  return server_list;
+  return servers;
 }
 
 ServerNode::ServerNode(int id, const std::string &order) : id_(id) {
@@ -102,32 +100,20 @@ void ServerNode::ReadConfig(const std::string &config) {
 
 void ServerNode::Run() {
   while (true) {
-    struct sockaddr_in src;
-    socklen_t srclen = sizeof(src);
-    char buffer[kMaxBufSize];
-    int nrecv = recvfrom(fd_, buffer, sizeof(buffer) - 1, 0,
-                         (struct sockaddr *)&src, &srclen);
-    if (nrecv < 0) {
-      LOG_F(ERROR, "[S%d] recvfrom failed", id());
+    Address addr;
+    std::string msg;
+    if (!RecvFrom(addr, msg)) {
       continue;
     }
 
-    // Null terminate buffer
-    buffer[nrecv] = 0;
-    std::string msg(buffer, nrecv);
-    const auto src_addr = MakeAddress(src);
-    LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}, addr={%s}", id(), msg.c_str(),
-          nrecv, src_addr.full().c_str());
-
-    // Check src address
-    if (IsFromServer(src_addr)) {
+    if (IsFromServer(addr)) {
       LOG_F(INFO, "[S%d] Msg from server, addr={%s}", id(),
-            src_addr.full().c_str());
-      HandleServerMessage(src_addr, msg);
+            addr.full().c_str());
+      //      HandleServerMessage(src_addr, msg);
     } else {
       LOG_F(INFO, "[S%d] Msg from client, addr={%s}", id(),
-            src_addr.full().c_str());
-      HandleClientMessage(src_addr, msg);
+            addr.full().c_str());
+      HandleClientMsg(addr, msg);
     }
   }
 }
@@ -154,12 +140,20 @@ int ServerNode::GetClientIndex(const Address &addr) const {
   }
 }
 
-void ServerNode::HandleClientMessage(const Address &addr,
-                                     const std::string &msg) {
+void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
   if (msg.empty()) {
     LOG_F(WARNING, "[S%d] empty string", id());
     return;
   }
+
+  // Try to get index
+  auto client_index = GetClientIndex(addr);
+  if (client_index < 0) {
+    clients_.emplace_back(addr);
+    client_index = clients_.size() - 1;
+    LOG_F(INFO, "[S%d] Add a new client, addr={%s}", id(), addr.full().c_str());
+  }
+  Client &client = clients_[client_index];
 
   // Check if the first character is a /
   if (msg[0] == '/') {
@@ -167,30 +161,22 @@ void ServerNode::HandleClientMessage(const Address &addr,
     const auto cmd = trim_copy(msg.substr(1, 5));
     if (cmd == "join") {
       const auto room = msg.substr(6);
-      Join(addr, room);
+      Join(client, room);
     } else if (cmd == "nick") {
       const auto nick = msg.substr(6);
-      Nick(addr, nick);
+      Nick(client, nick);
     } else if (cmd == "part") {
-      Part(addr);
+      Part(client);
     } else if (cmd == "quit") {
-      Quit(addr);
+      Quit(client);
     } else {
       LOG_F(WARNING, "[S%d] invalid command cmd={%s}", id(), cmd.c_str());
       ReplyErr(addr, "You entered an invalid command.");
     }
     LOG_F(INFO, "[S%d] Num clients, n={%zu}", id(), n_clients());
   } else {
-    // This is a message
-    const auto client_index = GetClientIndex(addr);
-    const Client &client = clients_[client_index];
-    if (client_index >= 0) {
-      // This message is from a client
-      // Send it to all servers
-      ForwardMsgToServers(msg);
-      // And also send back to this client
-      SendMsgToClient(client, msg);
-    }
+    // Forward message to all servers
+    LOG_F(INFO, "TODO");
   }
 }
 
@@ -206,30 +192,50 @@ void ServerNode::SendMsgToAllClients(const std::string &msg) const {
 }
 
 void ServerNode::ForwardMsgToServers(const std::string &msg) const {
-  for (size_t i = 0; i < servers_.size(); ++i) {
-    const auto server = servers_[i];
-    const auto this_server = index();
-    if (i != this_server) {
-      SendTo(server.forward(), msg);
-      LOG_F(INFO, "[S%d] Send to i={%d}", id(), i + 1);
-    }
+  for (const Server &server : servers_) {
+    SendTo(server.forward(), msg);
+    LOG_F(INFO, "[S%d] Send to forward, addr={%s}", id(),
+          server.forward().full());
   }
 }
 
-void ServerNode::SendTo(const Address &addr, const std::string &msg) const {
+bool ServerNode::SendTo(const Address &addr, const std::string &msg) const {
   auto dest = MakeSockAddrInet(addr);
   auto nsend = sendto(fd_, msg.c_str(), msg.size(), 0, (struct sockaddr *)&dest,
                       sizeof(dest));
   if (nsend < 0) {
     LOG_F(ERROR, "[S%d] Send failed, dest={%s}", id(), addr.full().c_str());
-  } else if (nsend != msg.size()) {
+    return false;
+  } else if (nsend != static_cast<int>(msg.size())) {
     LOG_F(WARNING,
           "[S%d] Byte sent doesn't match msg size, nsend={%zu}, nmsg={%zu}",
           id_, nsend, msg.size());
+    return false;
   } else {
     LOG_F(INFO, "[S%d] Msg sent, str={%s}, addr={%s}", id(), msg.c_str(),
           addr.full().c_str());
+    return true;
   }
+}
+
+bool ServerNode::RecvFrom(Address &addr, std::string &msg) const {
+  struct sockaddr_in src;
+  socklen_t srclen = sizeof(src);
+  char buffer[kMaxBufSize];
+  int nrecv = recvfrom(fd_, buffer, sizeof(buffer) - 1, 0,
+                       (struct sockaddr *)&src, &srclen);
+  if (nrecv < 0) {
+    LOG_F(ERROR, "[S%d] recvfrom failed", id());
+    return false;
+  }
+
+  // Null terminate buffer
+  buffer[nrecv] = 0;
+  msg = std::string(buffer, nrecv);
+  addr = MakeAddress(src);
+  LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}, addr={%s}", id(), msg.c_str(),
+        nrecv, addr.full().c_str());
+  return true;
 }
 
 void ServerNode::ReplyOk(const Address &addr, const std::string &msg) const {
@@ -240,98 +246,68 @@ void ServerNode::ReplyErr(const Address &addr, const std::string &msg) const {
   SendTo(addr, "-ERR " + msg);
 }
 
-void ServerNode::Join(const Address &addr, const std::string &arg) {
+void ServerNode::ReplyOk(const Client &client, const std::string &msg) const {
+  ReplyOk(client.addr(), msg);
+}
+
+void ServerNode::ReplyErr(const Client &client, const std::string &msg) const {
+  ReplyErr(client.addr(), msg);
+}
+
+void ServerNode::Join(Client &client, const std::string &arg) {
   const int room = std::atoi(arg.c_str());
   if (room <= 0) {
     LOG_F(ERROR, "[S%d] Invalid room number, arg={%s}", id(), arg.c_str());
-    ReplyErr(addr, "You provided an invalid room number #" + arg);
+    ReplyErr(client, "You provided an invalid room number #" + arg);
     return;
   }
 
-  // Check if this client exists in the client list
-  const auto client_index = GetClientIndex(addr);
-  if (client_index < 0) {
-    // If not, create a new client
-    clients_.emplace_back(addr, room);
-    LOG_F(INFO, "[S%d] Add a new client, addr={%s}, room={%d}", id(),
-          addr.full().c_str(), room);
-    ReplyOk(addr, "You are now in chat room #" + arg);
+  if (client.InRoom()) {
+    LOG_F(WARNING, "[S%d] client already in room, nick={%s}, room={%d}", id(),
+          client.nick().c_str(), client.room());
+    // If already in room reply with error message
+    ReplyErr(client, "You are already in chat room #" + client.room_str());
   } else {
-    // If exists, check if it is already in a room
-    Client &client = clients_[client_index];
-    if (client.InRoom()) {
-      LOG_F(WARNING, "[S%d] client already in room, nick={%s}, room={%d}", id(),
-            client.nick().c_str(), client.room());
-      // If already in room reply with error message
-      ReplyErr(addr, "You are already in chat room #" + client.room_str());
-    } else {
-      // If not, join room
-      client.Join(room);
-      LOG_F(INFO, "[S%d] client join room, nick={%s}, room={%d}", id(),
-            client.nick().c_str(), client.room());
-      ReplyOk(addr, "You are now in chat room #" + arg);
-    }
+    // If not, join room
+    client.Join(room);
+    LOG_F(INFO, "[S%d] client join room, nick={%s}, room={%d}", id(),
+          client.nick().c_str(), client.room());
+    ReplyOk(client, "You are now in chat room #" + arg);
   }
 }
 
-void ServerNode::Nick(const Address &addr, const std::string &arg) {
+void ServerNode::Nick(Client &client, const std::string &arg) {
   if (arg.empty()) {
     LOG_F(ERROR, "[S%d] No nick name provided", id());
-    ReplyErr(addr, "You provided an empty nick name");
+    ReplyErr(client, "You provided an empty nick name");
     return;
   }
 
-  // Check if this client exists in the client list
-  const auto client_index = GetClientIndex(addr);
-  if (client_index < 0) {
-    // If not, create a new client
-    clients_.emplace_back(addr, arg);
-    LOG_F(INFO, "[S%d] Add a new client, addr={%s}, nick={%s}", id(),
-          addr.full().c_str(), arg.c_str());
-  } else {
-    Client &client = clients_[client_index];
-    client.set_nick(arg);
-    LOG_F(INFO, "[S%d] Client change nick, new={%s}", id(),
+  client.set_nick(arg);
+  LOG_F(INFO, "[S%d] Client changed nick, nick={%s}", id(),
+        client.nick().c_str());
+  ReplyOk(client, "Nick name set to '" + arg + "'");
+}
+
+void ServerNode::Part(Client &client) {
+  const auto old_room = client.Leave();
+  if (old_room < 0) {
+    LOG_F(WARNING, "[S%d] Client is not in a room, nick={%s}", id(),
           client.nick().c_str());
-  }
-  ReplyOk(addr, "Nick name set to '" + arg + "'");
-}
-
-void ServerNode::Part(const Address &addr) {
-  // Check if this client exists in the client list
-  const auto client_index = GetClientIndex(addr);
-  if (client_index < 0) {
-    LOG_F(WARNING, "[S%d] Client hasn't joined any room", id());
-    ReplyErr(addr, "Cannot part because you haven't join any room");
+    ReplyErr(client, "You are not in any room");
   } else {
-    Client &client = clients_[client_index];
-    const auto old_room = client.Leave();
-    if (old_room < 0) {
-      LOG_F(WARNING, "[S%d] Client is not in a room, nick={%s}", id(),
-            client.nick().c_str());
-      ReplyErr(addr, "You are not in any room");
-    } else {
-      LOG_F(INFO, "[S%d] Client left room, nick={%s}, room={%d}", id(),
-            client.nick().c_str(), old_room);
-      ReplyOk(addr, "You have left chat room #" + std::to_string(old_room));
-    }
+    LOG_F(INFO, "[S%d] Client left room, nick={%s}, room={%d}", id(),
+          client.nick().c_str(), old_room);
+    ReplyOk(client, "You have left chat room #" + std::to_string(old_room));
   }
 }
 
-void ServerNode::Quit(const Address &addr) {
-  const auto client_index = GetClientIndex(addr);
-  if (client_index < 0) {
-    LOG_F(WARNING, "[S%d] Client doesn't exists", id());
-    return;
-  } else {
-    LOG_F(INFO, "[S%d] Removing client index={%d}", id(), client_index);
-    // Remove client
-    auto cmp_addr = [&addr](const Client &client) {
-      return client.addr() == addr;
-    };
-    clients_.erase(std::remove_if(clients_.begin(), clients_.end(), cmp_addr),
-                   clients_.end());
-  }
+void ServerNode::Quit(Client &client) {
+  LOG_F(INFO, "[S%d] Removing client, addr={%s}", id(),
+        client.addr_str().c_str());
+  // Remove client
+  clients_.erase(std::remove(clients_.begin(), clients_.end(), client),
+                 clients_.end());
 }
 
 void ServerNode::HandleServerMessage(const Address &addr,
