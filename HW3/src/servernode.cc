@@ -150,7 +150,6 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
   m.nick = j["nick"];
   m.room = j["room"];
   m.msg = j["msg"];
-  m.addr = j["addr"];
 
   LOG_F(INFO, "[S%d] Prase msg, nick={%s}, room={%d}, msg={%s}", id(),
         m.nick.c_str(), m.room, m.msg.c_str());
@@ -159,6 +158,7 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
     Deliver(m.room, m.FullMsg());
   } else if (order_ == Order::FIFO) {
     m.seq = j["seq"];
+    m.addr = j["addr"];
     // Put message in holdback queue
     hbq_fifo_.AddMessage(m);
     // Get the expected seq number of this message
