@@ -2,7 +2,7 @@
 #define CLIENT_HPP
 
 #include "address.hpp"
-#include <memory>
+#include <map>
 #include <string>
 
 /**
@@ -36,19 +36,19 @@ public:
   const std::string room_str() const { return std::to_string(room_); }
 
   bool InRoom() const { return room_ > 0; }
-  void Join(int room) { room_ = room; }
-  int Leave() {
-    int old_room = room_;
-    room_ = -1;
-    return old_room;
-  }
+  bool InRoom(int room) const { return room_ == room; }
+
+  void JoinRoom(int room) { room_ = room; }
+  int LeaveRoom();
+
+  std::map<int, int> &seqs() { return seqs_; }
+  int IncSeq();
 
 private:
   Address addr_;
   std::string nick_;
   int room_ = 0;
+  std::map<int, int> seqs_;
 };
-
-using ClientPtr = std::shared_ptr<Client>;
 
 #endif // CLIENT_HPP

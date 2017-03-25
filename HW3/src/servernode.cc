@@ -152,11 +152,7 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
 
   const auto full_msg = "<" + nick + "> " + msg1;
 
-  for (const Client &client : clients_) {
-    if (client.room() == room) {
-      SendMsgToClient(client, full_msg);
-    }
-  }
+  Deliver(room, full_msg);
 }
 
 void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
@@ -201,28 +197,28 @@ void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
       return;
     }
 
-    json j;
-    j["nick"] = client.nick();
-    j["room"] = client.room();
-    j["msg"] = msg;
-    Multicast(client, j.dump());
+    Multicast(client, msg);
   }
 }
 
-void ServerNode::SendMsgToClient(const Client &client,
-                                 const std::string &msg) const {
-  SendTo(client.addr(), msg);
-}
-
-void ServerNode::Deliver(const std::string &msg) const {
+void ServerNode::Deliver(int room, const std::string &msg) const {
   for (const Client &client : clients_) {
-    SendMsgToClient(client, msg);
+    if (client.InRoom(room)) {
+      SendMsgToClient(client, msg);
+    }
   }
 }
 
-void ServerNode::Multicast(const Client &client, const std::string &msg) const {
+void ServerNode::Multicast(Client &client, const std::string &msg) const {
+  json j;
+  j["nick"] = client.nick();
+  j["room"] = client.room();
+  j["msg"] = msg;
+  if (order_ == Order::FIFO) {
+    j["seq"] = client.IncSeq();
+  }
   for (const Server &server : servers_) {
-    SendTo(server.fwd_addr(), msg);
+    SendTo(server.fwd_addr(), j.dump());
     LOG_F(INFO, "[S%d] Send to forward, addr={%s}", id(),
           server.fwd_addr().addr().c_str());
   }
@@ -298,7 +294,7 @@ void ServerNode::Join(Client &client, const std::string &arg) {
     ReplyErr(client, "You are already in chat room #" + client.room_str());
   } else {
     // If not, join room
-    client.Join(room);
+    client.JoinRoom(room);
     LOG_F(INFO, "[S%d] client join room, nick={%s}, room={%d}", id(),
           client.nick().c_str(), client.room());
     ReplyOk(client, "You are now in chat room #" + arg);
@@ -319,7 +315,7 @@ void ServerNode::Nick(Client &client, const std::string &arg) {
 }
 
 void ServerNode::Part(Client &client) {
-  const auto old_room = client.Leave();
+  const auto old_room = client.LeaveRoom();
   if (old_room < 0) {
     LOG_F(WARNING, "[S%d] Client is not in a room, nick={%s}", id(),
           client.nick().c_str());
@@ -343,4 +339,9 @@ bool ServerNode::IsFromServer(const Address &addr) const {
   auto cmp_addr = [&](const Server &srv) { return srv.fwd_addr() == addr; };
   auto it = std::find_if(servers_.begin(), servers_.end(), cmp_addr);
   return it != servers_.end();
+}
+
+void ServerNode::SendMsgToClient(const Client &client,
+                                 const std::string &msg) const {
+  SendTo(client.addr(), msg);
 }
