@@ -149,13 +149,13 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
   Message m;
   m.nick = j["nick"];
   m.room = j["room"];
-  m.msg = j["msg"];
+  m.text = j["msg"];
 
   LOG_F(INFO, "[S%d] Prase msg, nick={%s}, room={%d}, msg={%s}", id(),
-        m.nick.c_str(), m.room, m.msg.c_str());
+        m.nick.c_str(), m.room, m.text.c_str());
 
   if (order_ == Order::UNORDERD) {
-    Deliver(m.room, m.FullMsg());
+    Deliver(m.room, m.Full());
   } else if (order_ == Order::FIFO) {
     m.seq = j["seq"];
     m.addr = j["addr"];
@@ -172,7 +172,7 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
     while ((msg_index = hbq_fifo_.GetMsgIndex(m.addr, m.room, exp_seq)) >= 0) {
       const auto &msg_td = hbq_fifo_.Get(msg_index);
       LOG_F(INFO, "[S%d] next message to deliver, seq={%d}", id(), msg_td.seq);
-      Deliver(m.room, msg_td.FullMsg());
+      Deliver(m.room, msg_td.Full());
       hbq_fifo_.RemoveByIndex(msg_index);
       LOG_F(INFO, "[S%d] queue size, n={%zu}", id(), hbq_fifo_.size());
       ++exp_seq;
@@ -243,6 +243,9 @@ void ServerNode::Multicast(Client &client, const std::string &msg) const {
   if (order_ == Order::FIFO) {
     j["seq"] = client.IncSeq();
     j["addr"] = client.addr_str();
+  }
+
+  if (order_ == Order::TOTAL) {
   }
 
   for (const Server &server : servers_) {

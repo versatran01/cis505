@@ -2,6 +2,7 @@
 #define CLIENT_HPP
 
 #include "address.hpp"
+#include <cassert>
 #include <map>
 #include <string>
 
@@ -39,10 +40,19 @@ public:
   bool InRoom(int room) const { return room_ == room; }
 
   void JoinRoom(int room) { room_ = room; }
-  int LeaveRoom();
+  int LeaveRoom() {
+    int old_room = room_;
+    room_ = -1;
+    return old_room;
+  }
 
   std::map<int, int> &seqs() { return seqs_; }
-  int IncSeq();
+  int IncSeq() {
+    assert(room_ >= 0);
+    int seq = seqs_[room_]; // will be 0 if this room doesn't exist previouslly
+    seqs_[room_]++;
+    return seq;
+  }
 
 private:
   Address addr_;
