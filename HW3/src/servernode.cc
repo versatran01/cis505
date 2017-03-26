@@ -230,26 +230,25 @@ void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
             client.addr_str().c_str());
       return;
     }
+    json j;
+    j["nick"] = client.nick();
+    j["room"] = client.room();
+    j["msg"] = msg;
+    if (order_ == Order::FIFO) {
+      j["seq"] = client.IncSeq();
+      j["addr"] = client.addr_str();
+    }
 
-    Multicast(client, msg);
+    if (order_ == Order::TOTAL) {
+    }
+
+    Multicast(client, j.dump());
   }
 }
 
 void ServerNode::Multicast(Client &client, const std::string &msg) const {
-  json j;
-  j["nick"] = client.nick();
-  j["room"] = client.room();
-  j["msg"] = msg;
-  if (order_ == Order::FIFO) {
-    j["seq"] = client.IncSeq();
-    j["addr"] = client.addr_str();
-  }
-
-  if (order_ == Order::TOTAL) {
-  }
-
   for (const Server &server : servers_) {
-    SendTo(server.fwd_addr(), j.dump());
+    SendTo(server.fwd_addr(), msg);
     LOG_F(INFO, "[S%d] Send to forward, addr={%s}", id(),
           server.fwd_addr().addr().c_str());
   }
