@@ -1,13 +1,13 @@
-#ifndef SERVER_HPP
-#define SERVER_HPP
+#ifndef SERVERNODE_HPP
+#define SERVERNODE_HPP
 
 #include <string>
 #include <vector>
 
-#include "address.hpp"
 #include "client.hpp"
 #include "holdbackqueue.hpp"
 #include "message.hpp"
+#include "server.hpp"
 
 enum class Order { UNORDERD, FIFO, TOTAL };
 
@@ -22,7 +22,7 @@ public:
   void Init(const std::string &config);
 
   /**
-   * @brief Run server node
+   * @brief Run server node, start from here
    */
   void Run();
 
@@ -37,6 +37,13 @@ public:
   size_t n_clients() const { return clients_.size(); }
 
 private:
+  void HandleClientMsg(const Address &addr, const std::string &msg);
+  void HandleServerMsg(const Address &addr, const std::string &msg);
+
+  void SendMsgToClient(const Client &client, const std::string &msg) const;
+  void Deliver(int room, const std::string &msg) const;
+  void Multicast(Client &client, const std::string &msg) const;
+
   void ReadConfig(const std::string &config);
   void SetupConnection();
 
@@ -50,13 +57,6 @@ private:
   void ReplyErr(const Address &addr, const std::string &msg) const;
   void ReplyOk(const Client &client, const std::string &msg) const;
   void ReplyErr(const Client &client, const std::string &msg) const;
-
-  void SendMsgToClient(const Client &client, const std::string &msg) const;
-  void Deliver(int room, const std::string &msg) const;
-
-  void HandleClientMsg(const Address &addr, const std::string &msg);
-  void HandleServerMsg(const Address &addr, const std::string &msg);
-  void Multicast(Client &client, const std::string &msg) const;
 
   void Join(Client &client, const std::string &arg);
   void Nick(Client &client, const std::string &arg);
@@ -75,8 +75,9 @@ private:
   std::vector<Server> servers_;
   std::vector<Client> clients_;
   Order order_;
-  std::map<std::string, std::map<int, int>> seq_record_;
+  // FIFO reltaed
+  std::map<std::string, std::map<int, int>> seq_fifo_;
   HoldbackQueueFIFO hbq_fifo_;
 };
 
-#endif // SERVER_HPP
+#endif // SERVERNODE_HPP

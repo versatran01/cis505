@@ -163,11 +163,11 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
     hbq_fifo_.AddMessage(m);
     // Get the expected seq number of this message
     // expected_seq will be zero if it doesn't exist
-    int &exp_seq = seq_record_[m.addr][m.room];
+    int &exp_seq = seq_fifo_[m.addr][m.room];
     LOG_F(INFO, "[S%d] Expected seq={%d}, sender={%s}, room={%d}", id(),
           exp_seq, m.addr.c_str(), m.room);
     // If there is a message in holdback queue that matches addr, room and seq
-    // We will deliver that
+    // We will deliver that and increment exp_seq
     int msg_index;
     while ((msg_index = hbq_fifo_.GetMsgIndex(m.addr, m.room, exp_seq)) >= 0) {
       const auto &msg_td = hbq_fifo_.Get(msg_index);
@@ -177,6 +177,7 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
       LOG_F(INFO, "[S%d] queue size, n={%zu}", id(), hbq_fifo_.size());
       ++exp_seq;
     }
+  } else if (order_ == Order::TOTAL) {
   }
 }
 
