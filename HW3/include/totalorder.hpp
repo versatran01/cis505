@@ -20,7 +20,7 @@ private:
   std::map<int, int> Pg_;
   // Highest agreed sequence number it has seen for group g
   std::map<int, int> Ag_;
-  // (m, Pg_new) local hold back queue
+  // local hold back queue
   std::vector<Message> hbq_;
 };
 

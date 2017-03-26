@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+enum MsgType { NORMAL, PROPOSE, DELIVER };
+
 struct Message {
   Message() = default;
 
@@ -16,6 +18,7 @@ struct Message {
   std::string nick;
   std::string text;
   bool deliverble = false;
+  int type = NORMAL;
   std::vector<int> proposed;
 };
 
