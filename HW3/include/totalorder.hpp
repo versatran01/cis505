@@ -7,13 +7,21 @@
 
 class TotalOrder {
 public:
-  int NewProposed(int room) {
-    int Pg_old = Pg_[room];
-    int Ag = Ag_[room];
-    Pg_new = std::max(Pg_old, Ag) + 1;
-    ++Pg_[room];
-    return Pg_new;
-  }
+  int NewProposed(int room);
+
+  void AddMessage(const Message &msg);
+
+  Message &GetMessage(const std::string &addr, int room, int id);
+
+  size_t QueueSize(int room) { return hbq_[room].size(); }
+
+  void UpdateAgreed(int room, int seq);
+
+  void SortQueue(int room);
+
+  std::vector<Message> &GetQueue(int room) { return hbq_[room]; }
+
+  void RemoveDelivered(int room);
 
 private:
   // Highest sequence number it has propsed to group g so far
@@ -21,7 +29,7 @@ private:
   // Highest agreed sequence number it has seen for group g
   std::map<int, int> Ag_;
   // local hold back queue
-  std::vector<Message> hbq_;
+  std::map<int, std::vector<Message>> hbq_;
 };
 
 #endif // TOTALORDER_HPP

@@ -8,6 +8,7 @@
 #include "holdbackqueue.hpp"
 #include "message.hpp"
 #include "server.hpp"
+#include "totalorder.hpp"
 
 enum class Order { UNORDERD, FIFO, TOTAL };
 
@@ -42,7 +43,7 @@ private:
 
   void SendMsgToClient(const Client &client, const std::string &msg) const;
   void Deliver(int room, const std::string &msg) const;
-  void Multicast(Client &client, const std::string &msg) const;
+  void Multicast(const std::string &msg) const;
 
   void ReadConfig(const std::string &config);
   void SetupConnection();
@@ -75,9 +76,11 @@ private:
   std::vector<Server> servers_;
   std::vector<Client> clients_;
   Order order_;
-  // FIFO reltaed
+  // FIFO related
   std::map<std::string, std::map<int, int>> seq_fifo_;
   HoldbackQueueFIFO hbq_fifo_;
+  // Total order
+  TotalOrder totalorder_;
 };
 
 #endif // SERVERNODE_HPP

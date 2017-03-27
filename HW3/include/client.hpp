@@ -11,6 +11,8 @@
  */
 class Client {
 public:
+  static int id;
+
   Client() = default;
   explicit Client(const Address &addr)
       : addr_(addr), nick_(addr.addr()), room_(0) {}
