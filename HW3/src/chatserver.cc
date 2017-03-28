@@ -11,7 +11,7 @@ void ConfigureParser(cli::Parser &parser) {
       "Config file of forwarding address and id of server");
   parser.set_optional<bool>("v", "verbose", false,
                             "Print to stdout when sth important happnes.");
-  parser.set_optional<bool>("l", "log to file", false,
+  parser.set_optional<bool>("v", "log to file", false,
                             "Log to file if set, otherwise log to stderr");
   parser.set_optional<std::string>("o", "ordering mode", "unordered",
                                    "Ordering mode: unordered, fifo, total");
@@ -28,12 +28,6 @@ int main(int argc, char *argv[]) {
   ConfigureParser(parser);
   parser.run_and_exit_if_error();
 
-  // Setup logging
-  if (parser.get<bool>("l")) {
-    loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
-    loguru::add_file("chatclient.log", loguru::Truncate, loguru::Verbosity_MAX);
-  }
-
   // Get config file and index
   const auto config_and_id = parser.get<std::vector<std::string>>("");
   if (config_and_id.size() != 2) {
@@ -42,7 +36,7 @@ int main(int argc, char *argv[]) {
   }
   const auto config = config_and_id[0];
   const auto id = std::atoi(config_and_id[1].c_str());
-  LOG_F(INFO, "argv: %s %d", config.c_str(), id);
+  //  LOG_F(INFO, "argv: %s %d", config.c_str(), id);
 
   // Get order mode
   const auto order = parser.get<std::string>("o");
@@ -51,6 +45,13 @@ int main(int argc, char *argv[]) {
   if (id <= 0) {
     LOG_F(ERROR, "Invalid server index.");
     return EXIT_FAILURE;
+  }
+
+  // Setup logging
+  if (!parser.get<bool>("v")) {
+    const auto log_name = "chatserver" + std::to_string(id) + ".log";
+    loguru::g_stderr_verbosity = loguru::Verbosity_OFF;
+    loguru::add_file(log_name.c_str(), loguru::Truncate, loguru::Verbosity_MAX);
   }
 
   // Construct and run server

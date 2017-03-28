@@ -50,7 +50,9 @@ private:
 
   int GetServerIndex(const Address &addr) const;
   int GetClientIndex(const Address &addr) const;
+  bool IsFromServer(const Address &addr) const;
 
+  /// Simplify communication
   bool SendTo(const Address &addr, const std::string &msg) const;
   bool RecvFrom(Address &addr, std::string &msg) const;
 
@@ -59,21 +61,16 @@ private:
   void ReplyOk(const Client &client, const std::string &msg) const;
   void ReplyErr(const Client &client, const std::string &msg) const;
 
+  /// Handle client commands
   void Join(Client &client, const std::string &arg);
   void Nick(Client &client, const std::string &arg);
   void Part(Client &client);
   void Quit(Client &client);
 
+  /// Handle different ordering
   void UnorderedDeliver(const std::string &msg);
   void FifoDeliver(const std::string &msg);
   void TotalOrderDeliver(const std::string &msg);
-
-  /**
-   * @brief IsFromServer Check whether addr is forward addr of server
-   * @param addr address of incoming message
-   * @return True if message is from another server
-   */
-  bool IsFromServer(const Address &addr) const;
 
   int fd_;
   int id_; // id of the server, starts at 1
