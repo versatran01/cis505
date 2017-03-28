@@ -3,7 +3,7 @@
 
 #include <algorithm>
 
-void TotalOrder::AddMessage(const Message &msg) {
+void TotalOrder::AddMsg(const Message &msg) {
   auto &q = hbq_[msg.room];
   q.push_back(msg);
 }
@@ -16,7 +16,7 @@ int TotalOrder::NewProposed(int room) {
   return Pg_new;
 }
 
-Message &TotalOrder::GetMessage(const std::string &addr, int room, int id) {
+Message &TotalOrder::GetMsg(const std::string &addr, int room, int id) {
   auto cmp = [&](const Message &m) {
     return m.addr == addr && m.room == room && m.id == id;
   };

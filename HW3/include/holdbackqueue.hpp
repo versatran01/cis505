@@ -6,11 +6,11 @@
 
 class HoldbackQueueFIFO {
 public:
-  void AddMessage(const Message &msg);
+  void AddMsg(const Message &msg);
 
   int GetMsgIndex(const std::string &addr, int room, int seq) const;
 
-  const Message &Get(int index) const { return queue_[index]; }
+  const Message &GetMsg(int index) const { return queue_[index]; }
 
   void RemoveByIndex(int index);
 

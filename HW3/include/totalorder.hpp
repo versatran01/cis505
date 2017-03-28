@@ -9,9 +9,9 @@ class TotalOrder {
 public:
   int NewProposed(int room);
 
-  void AddMessage(const Message &msg);
+  void AddMsg(const Message &msg);
 
-  Message &GetMessage(const std::string &addr, int room, int id);
+  Message &GetMsg(const std::string &addr, int room, int id);
 
   size_t QueueSize(int room) { return hbq_[room].size(); }
 

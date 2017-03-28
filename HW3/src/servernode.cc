@@ -111,12 +111,12 @@ void ServerNode::Run() {
     }
 
     if (IsFromServer(addr)) {
-      LOG_F(INFO, "[S%d] Msg from server, addr={%s}", id(),
-            addr.addr().c_str());
+      //      LOG_F(INFO, "[S%d] Msg from server, addr={%s}", id(),
+      //            addr.addr().c_str());
       HandleServerMsg(addr, msg);
     } else {
-      LOG_F(INFO, "[S%d] Msg from client, addr={%s}", id(),
-            addr.addr().c_str());
+      //      LOG_F(INFO, "[S%d] Msg from client, addr={%s}", id(),
+      //            addr.addr().c_str());
       HandleClientMsg(addr, msg);
     }
   }
@@ -149,32 +149,13 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
   m.room = j["room"];
   m.text = j["text"];
 
-  LOG_F(INFO, "[S%d] Parse msg, nick={%s}, room={%d}, msg={%s}", id(),
-        m.nick.c_str(), m.room, m.text.c_str());
+  //  LOG_F(INFO, "[S%d] Parse msg, nick={%s}, room={%d}, msg={%s}", id(),
+  //        m.nick.c_str(), m.room, m.text.c_str());
 
   if (order_ == Order::UNORDERD) {
-    Deliver(m.room, m.Full());
+    UnorderedDeliver(msg);
   } else if (order_ == Order::FIFO) {
-    m.seq = j["seq"];
-    m.addr = j["addr"];
-    // Put message in holdback queue
-    hbq_fifo_.AddMessage(m);
-    // Get the expected seq number of this message
-    // expected_seq will be zero if it doesn't exist
-    int &exp_seq = seq_fifo_[m.addr][m.room];
-    LOG_F(INFO, "[S%d] Expected seq={%d}, sender={%s}, room={%d}", id(),
-          exp_seq, m.addr.c_str(), m.room);
-    // If there is a message in holdback queue that matches addr, room and seq
-    // We will deliver that and increment exp_seq
-    int msg_index;
-    while ((msg_index = hbq_fifo_.GetMsgIndex(m.addr, m.room, exp_seq)) >= 0) {
-      const auto &msg_td = hbq_fifo_.Get(msg_index);
-      LOG_F(INFO, "[S%d] next message to deliver, seq={%d}", id(), msg_td.seq);
-      Deliver(m.room, msg_td.Full());
-      hbq_fifo_.RemoveByIndex(msg_index);
-      LOG_F(INFO, "[S%d] queue size, n={%zu}", id(), hbq_fifo_.size());
-      ++exp_seq;
-    }
+    FifoDeliver(msg);
   } else if (order_ == Order::TOTAL) {
     // Total order
     m.id = j["id"];
@@ -194,13 +175,13 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
         LOG_F(INFO, "[S%d] From the same server, queue size={%zu}", id(),
               totalorder_.QueueSize(m.room));
         // This is from the same server
-        Message &msg_iq = totalorder_.GetMessage(m.addr, m.room, m.id);
+        Message &msg_iq = totalorder_.GetMsg(m.addr, m.room, m.id);
         // Just update seq number
         msg_iq.seq = m.seq;
         msg_iq.status = m.status;
       } else {
         // This is from another server, put in holdback queue
-        totalorder_.AddMessage(m);
+        totalorder_.AddMsg(m);
       }
       LOG_F(INFO, "[S%d] hbq size, n={%zu}", id(),
             totalorder_.QueueSize(m.room));
@@ -222,7 +203,7 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
       LOG_F(INFO, "[S%d] Got PROPOSE msg", id());
       // At this point message has to be in local queue
       // Find the same message in holdback queue
-      Message &msg_iq = totalorder_.GetMessage(m.addr, m.room, m.id);
+      Message &msg_iq = totalorder_.GetMsg(m.addr, m.room, m.id);
       LOG_F(INFO, "[S%d] msg addr={%s}, seq={%d}, room={%d}, id={%d}", id(),
             msg_iq.addr.c_str(), msg_iq.seq, msg_iq.room, msg_iq.id);
       // Add proposed seq number
@@ -253,7 +234,7 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
 
       // Upon receiving a (m, Tm) tuple, the recipients update m's number to Tm
       // and mark it as deliverable, and update its Ag_new = max(Ag_old, Tm)
-      Message &msg_iq = totalorder_.GetMessage(m.addr, m.room, m.id);
+      Message &msg_iq = totalorder_.GetMsg(m.addr, m.room, m.id);
       msg_iq.seq = m.seq;
       msg_iq.status = DeliverStatus::DELIVERBALE;
       totalorder_.UpdateAgreed(msg_iq.room, msg_iq.seq);
@@ -363,7 +344,7 @@ void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
       m.text = msg;
       m.room = client.room();
       m.status = DeliverStatus::NOTDELIVERABLE;
-      totalorder_.AddMessage(m);
+      totalorder_.AddMsg(m);
       LOG_F(INFO, "[S%d] Send out NORMAL msg, queue size={%zu}", id(),
             totalorder_.QueueSize(m.room));
       client.id++;
@@ -377,8 +358,8 @@ void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
 void ServerNode::Multicast(const std::string &msg) const {
   for (const Server &server : servers_) {
     SendTo(server.fwd_addr(), msg);
-    LOG_F(INFO, "[S%d] Send to forward, addr={%s}", id(),
-          server.fwd_addr().addr().c_str());
+    //    LOG_F(INFO, "[S%d] Send to forward, addr={%s}", id(),
+    //          server.fwd_addr().addr().c_str());
   }
 }
 
@@ -395,8 +376,8 @@ bool ServerNode::SendTo(const Address &addr, const std::string &msg) const {
           id_, nsend, msg.size());
     return false;
   } else {
-    LOG_F(INFO, "[S%d] Msg sent, str={%s}, addr={%s}", id(), msg.c_str(),
-          addr.addr().c_str());
+    //    LOG_F(INFO, "[S%d] Msg sent, str={%s}, addr={%s}", id(), msg.c_str(),
+    //          addr.addr().c_str());
     return true;
   }
 }
@@ -416,8 +397,8 @@ bool ServerNode::RecvFrom(Address &addr, std::string &msg) const {
   buffer[nrecv] = 0;
   msg = std::string(buffer, nrecv);
   addr = MakeAddress(src);
-  LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}, addr={%s}", id(), msg.c_str(),
-        nrecv, addr.addr().c_str());
+  //  LOG_F(INFO, "[S%d] Read, str={%s}, n={%d}, addr={%s}", id(), msg.c_str(),
+  //        nrecv, addr.addr().c_str());
   return true;
 }
 
@@ -502,4 +483,44 @@ bool ServerNode::IsFromServer(const Address &addr) const {
 void ServerNode::SendMsgToClient(const Client &client,
                                  const std::string &msg) const {
   SendTo(client.addr(), msg);
+}
+
+void ServerNode::UnorderedDeliver(const std::string &msg) {
+  auto j = json::parse(msg);
+  Message m;
+  m.nick = j["nick"];
+  m.room = j["room"];
+  m.text = j["text"];
+
+  Deliver(m.room, m.Full());
+}
+
+void ServerNode::FifoDeliver(const std::string &msg) {
+  auto j = json::parse(msg);
+  Message m;
+  m.nick = j["nick"];
+  m.room = j["room"];
+  m.text = j["text"];
+  m.seq = j["seq"];
+  m.addr = j["addr"];
+
+  // Put message in holdback queue
+  hbq_fifo_.AddMsg(m);
+  // Get the expected seq number of this message
+  // expected_seq will be zero if it doesn't exist
+  int &exp_seq = seq_fifo_[m.addr][m.room];
+  LOG_F(INFO, "[S%d] Expected seq={%d}, sender={%s}, room={%d}", id(), exp_seq,
+        m.addr.c_str(), m.room);
+  // If there is a message in holdback queue that matches addr, room and seq
+  // We will deliver that and increment exp_seq
+  int msg_index;
+  while ((msg_index = hbq_fifo_.GetMsgIndex(m.addr, m.room, exp_seq)) >= 0) {
+    const auto &msg_td = hbq_fifo_.GetMsg(msg_index);
+    //    LOG_F(INFO, "[S%d] next message to deliver, seq={%d}", id(),
+    //    msg_td.seq);
+    Deliver(m.room, msg_td.Full());
+    hbq_fifo_.RemoveByIndex(msg_index);
+    //    LOG_F(INFO, "[S%d] queue size, n={%zu}", id(), hbq_fifo_.size());
+    ++exp_seq;
+  }
 }

@@ -1,9 +1,7 @@
 #include "holdbackqueue.hpp"
 #include <algorithm>
 
-void HoldbackQueueFIFO::AddMessage(const Message &msg) {
-  queue_.push_back(msg);
-}
+void HoldbackQueueFIFO::AddMsg(const Message &msg) { queue_.push_back(msg); }
 
 int HoldbackQueueFIFO::GetMsgIndex(const std::string &addr, int room,
                                    int seq) const {

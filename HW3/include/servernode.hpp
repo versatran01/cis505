@@ -64,6 +64,10 @@ private:
   void Part(Client &client);
   void Quit(Client &client);
 
+  void UnorderedDeliver(const std::string &msg);
+  void FifoDeliver(const std::string &msg);
+  void TotalOrderDeliver(const std::string &msg);
+
   /**
    * @brief IsFromServer Check whether addr is forward addr of server
    * @param addr address of incoming message
