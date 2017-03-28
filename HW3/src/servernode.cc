@@ -157,116 +157,7 @@ void ServerNode::HandleServerMsg(const Address &addr, const std::string &msg) {
   } else if (order_ == Order::FIFO) {
     FifoDeliver(msg);
   } else if (order_ == Order::TOTAL) {
-    // Total order
-    m.id = j["id"];
-    m.addr = j["addr"];
-    const MsgType msg_type = j["type"];
-    LOG_F(INFO, "[S%d] id={%d}, addr={%s}", id(), m.id, m.addr.c_str());
-
-    if (msg_type == MsgType::NORMAL) {
-      LOG_F(INFO, "[S%d] Got NORMAL msg", id());
-      // This is a message from the first multicast
-      // Each recipient responds with its proposed number
-      // Pg_new = max(Pg_old, Ag) + 1 and then put (m, Pg_new) into their
-      // local holdback queue, but marked as undeliverable
-      m.seq = totalorder_.NewProposed(m.room);
-      m.status = DeliverStatus::NOTDELIVERABLE;
-      if (addr == servers_[index()].fwd_addr()) {
-        LOG_F(INFO, "[S%d] From the same server, queue size={%zu}", id(),
-              totalorder_.QueueSize(m.room));
-        // This is from the same server
-        Message &msg_iq = totalorder_.GetMsg(m.addr, m.room, m.id);
-        // Just update seq number
-        msg_iq.seq = m.seq;
-        msg_iq.status = m.status;
-      } else {
-        // This is from another server, put in holdback queue
-        totalorder_.AddMsg(m);
-      }
-      LOG_F(INFO, "[S%d] hbq size, n={%zu}", id(),
-            totalorder_.QueueSize(m.room));
-
-      // Build proposed message
-      json jp;
-      jp["nick"] = m.nick;
-      jp["text"] = m.text;
-      jp["room"] = m.room;
-      jp["addr"] = m.addr;
-      jp["seq"] = m.seq; // seq will be used in PROPOSE and DELIVER phases
-      jp["type"] = MsgType::PROPOSE;
-      jp["id"] = m.id;
-
-      // Send back to original server
-      SendTo(addr, jp.dump());
-    } else if (msg_type == MsgType::PROPOSE) {
-      m.seq = j["seq"];
-      LOG_F(INFO, "[S%d] Got PROPOSE msg", id());
-      // At this point message has to be in local queue
-      // Find the same message in holdback queue
-      Message &msg_iq = totalorder_.GetMsg(m.addr, m.room, m.id);
-      LOG_F(INFO, "[S%d] msg addr={%s}, seq={%d}, room={%d}, id={%d}", id(),
-            msg_iq.addr.c_str(), msg_iq.seq, msg_iq.room, msg_iq.id);
-      // Add proposed seq number
-      msg_iq.proposed.push_back(m.seq);
-      LOG_F(INFO, "[S%d] add one proposed seq to message", id());
-
-      // Check if it reaches the required amount of proposal to make a decision
-      if (msg_iq.proposed.size() == n_servers()) {
-        LOG_F(INFO, "[S%d] Got all proposal, addr={%s}, id={%d}, nick={%s}",
-              id(), msg_iq.addr.c_str(), msg_iq.id, msg_iq.nick.c_str());
-
-        // Build deliver message
-        json jd;
-        jd["id"] = msg_iq.id;
-        jd["seq"] = msg_iq.MaxProposed();
-        jd["nick"] = msg_iq.nick;
-        jd["text"] = msg_iq.text;
-        jd["room"] = msg_iq.room;
-        jd["addr"] = msg_iq.addr;
-        jd["type"] = MsgType::DELIVER;
-
-        Multicast(jd.dump());
-      }
-      LOG_F(INFO, "HERE end of PROPOSE");
-    } else if (msg_type == MsgType::DELIVER) {
-      m.seq = j["seq"];
-      LOG_F(INFO, "[S%d] Got DELIVER msg", id());
-
-      // Upon receiving a (m, Tm) tuple, the recipients update m's number to Tm
-      // and mark it as deliverable, and update its Ag_new = max(Ag_old, Tm)
-      Message &msg_iq = totalorder_.GetMsg(m.addr, m.room, m.id);
-      msg_iq.seq = m.seq;
-      msg_iq.status = DeliverStatus::DELIVERBALE;
-      totalorder_.UpdateAgreed(msg_iq.room, msg_iq.seq);
-      LOG_F(INFO, "[S%d] Update agreed number, room={%d}, seq={%d}", id(),
-            msg_iq.room, msg_iq.seq);
-
-      // Sort message in queue by seq number
-      totalorder_.SortQueue(msg_iq.room);
-
-      // Now go through queue and deliever messages in order, if marked as
-      // deliverable, then deliver and mark as delivered
-      auto &msg_queue = totalorder_.GetQueue(msg_iq.room);
-      for (Message &mq : msg_queue) {
-        // If the first one is not deliverable, just break
-        if (mq.status == DeliverStatus::NOTDELIVERABLE) {
-          LOG_F(WARNING, "[S%d] Undeliverable msg in front, wait");
-          break;
-        }
-
-        CHECK_F(mq.status != DeliverStatus::DELIVERED);
-
-        if (mq.status == DeliverStatus::DELIVERBALE) {
-          // Otherwise this one is deliverable so we deliver it
-          Deliver(mq.room, mq.Full());
-          // Then mark it as delivered
-          mq.status = DeliverStatus::DELIVERED;
-        }
-      }
-
-      // Afterward, we remove all delivered message in queue
-      totalorder_.RemoveDelivered(msg_iq.room);
-    }
+    TotalOrderDeliver(addr, msg);
   }
 }
 
@@ -336,6 +227,7 @@ void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
       j["addr"] = client.addr_str();
       // We need id to uniquely identify a message with addr, room and id
       j["id"] = client.id;
+
       // Hack so that server put message into hbq immediately
       Message m;
       m.id = client.id;
@@ -345,8 +237,8 @@ void ServerNode::HandleClientMsg(const Address &addr, const std::string &msg) {
       m.room = client.room();
       m.status = DeliverStatus::NOTDELIVERABLE;
       totalorder_.AddMsg(m);
-      LOG_F(INFO, "[S%d] Send out NORMAL msg, queue size={%zu}", id(),
-            totalorder_.QueueSize(m.room));
+      //      LOG_F(INFO, "[S%d] Send out NORMAL msg, queue size={%zu}", id(),
+      //            totalorder_.QueueSize(m.room));
       client.id++;
     }
 
@@ -522,5 +414,123 @@ void ServerNode::FifoDeliver(const std::string &msg) {
     hbq_fifo_.RemoveByIndex(msg_index);
     //    LOG_F(INFO, "[S%d] queue size, n={%zu}", id(), hbq_fifo_.size());
     ++exp_seq;
+  }
+}
+
+void ServerNode::TotalOrderDeliver(const Address &addr,
+                                   const std::string &msg) {
+  auto j = json::parse(msg);
+  Message m;
+  m.nick = j["nick"];
+  m.room = j["room"];
+  m.text = j["text"];
+  m.id = j["id"];
+  m.addr = j["addr"];
+  const MsgType msg_type = j["type"];
+  LOG_F(INFO, "[S%d] id={%d}, addr={%s}", id(), m.id, m.addr.c_str());
+
+  if (msg_type == MsgType::NORMAL) {
+    LOG_F(INFO, "[S%d] Got NORMAL msg", id());
+    // This is a message from the first multicast
+    // Each recipient responds with its proposed number
+    // Pg_new = max(Pg_old, Ag) + 1 and then put (m, Pg_new) into their
+    // local holdback queue, but marked as undeliverable
+    m.seq = totalorder_.NewProposed(m.room);
+    m.status = DeliverStatus::NOTDELIVERABLE;
+    if (addr == servers_[index()].fwd_addr()) {
+      LOG_F(INFO, "[S%d] From the same server, queue size={%zu}", id(),
+            totalorder_.QueueSize(m.room));
+      // This is from the same server
+      Message &msg_iq = totalorder_.GetMsg(m.addr, m.room, m.id);
+      // Just update seq number
+      msg_iq.seq = m.seq;
+      msg_iq.status = m.status;
+    } else {
+      // This is from another server, put in holdback queue
+      totalorder_.AddMsg(m);
+    }
+    //    LOG_F(INFO, "[S%d] hbq size, n={%zu}", id(),
+    //    totalorder_.QueueSize(m.room));
+
+    // Build proposed message
+    json jp;
+    jp["nick"] = m.nick;
+    jp["text"] = m.text;
+    jp["room"] = m.room;
+    jp["addr"] = m.addr;
+    jp["seq"] = m.seq; // seq will be used in PROPOSE and DELIVER phases
+    jp["type"] = MsgType::PROPOSE;
+    jp["id"] = m.id;
+
+    // Send back to original server only, since this is a proposal
+    SendTo(addr, jp.dump());
+  } else if (msg_type == MsgType::PROPOSE) {
+    m.seq = j["seq"];
+    //    LOG_F(INFO, "[S%d] Got PROPOSE msg", id());
+    // At this point message has to be in local queue
+    // Find the same message in holdback queue
+    Message &msg_iq = totalorder_.GetMsg(m.addr, m.room, m.id);
+    //    LOG_F(INFO, "[S%d] msg addr={%s}, seq={%d}, room={%d}, id={%d}", id(),
+    //          msg_iq.addr.c_str(), msg_iq.seq, msg_iq.room, msg_iq.id);
+    // Add proposed seq number
+    msg_iq.proposed.push_back(m.seq);
+    //    LOG_F(INFO, "[S%d] add one proposed seq to message", id());
+
+    // Check if it reaches the required amount of proposal to make a decision
+    if (msg_iq.proposed.size() == n_servers()) {
+      //      LOG_F(INFO, "[S%d] Got all proposal, addr={%s}, id={%d},
+      //      nick={%s}", id(),
+      //            msg_iq.addr.c_str(), msg_iq.id, msg_iq.nick.c_str());
+
+      // Build deliver message
+      json jd;
+      jd["id"] = msg_iq.id;
+      jd["seq"] = msg_iq.MaxProposed();
+      jd["nick"] = msg_iq.nick;
+      jd["text"] = msg_iq.text;
+      jd["room"] = msg_iq.room;
+      jd["addr"] = msg_iq.addr;
+      jd["type"] = MsgType::DELIVER;
+
+      Multicast(jd.dump());
+    }
+  } else if (msg_type == MsgType::DELIVER) {
+    m.seq = j["seq"];
+    //    LOG_F(INFO, "[S%d] Got DELIVER msg", id());
+
+    // Upon receiving a (m, Tm) tuple, the recipients update m's number to Tm
+    // and mark it as deliverable, and update its Ag_new = max(Ag_old, Tm)
+    Message &msg_iq = totalorder_.GetMsg(m.addr, m.room, m.id);
+    msg_iq.seq = m.seq;
+    msg_iq.status = DeliverStatus::DELIVERBALE;
+    totalorder_.UpdateAgreed(msg_iq.room, msg_iq.seq);
+    LOG_F(INFO, "[S%d] Update agreed number, room={%d}, seq={%d}", id(),
+          msg_iq.room, msg_iq.seq);
+
+    // Sort message in queue by seq number
+    totalorder_.SortQueue(msg_iq.room);
+
+    // Now go through queue and deliever messages in order, if marked as
+    // deliverable, then deliver and mark as delivered
+    auto &msg_queue = totalorder_.GetQueue(msg_iq.room);
+    for (Message &mq : msg_queue) {
+      // If the first one is not deliverable, just break
+      if (mq.status == DeliverStatus::NOTDELIVERABLE) {
+        LOG_F(WARNING, "[S%d] Undeliverable msg in front, wait", id());
+        break;
+      }
+
+      CHECK_F(mq.status != DeliverStatus::DELIVERED);
+
+      if (mq.status == DeliverStatus::DELIVERBALE) {
+        // Otherwise this one is deliverable so we deliver it
+        Deliver(mq.room, mq.Full());
+        // Then mark it as delivered
+        mq.status = DeliverStatus::DELIVERED;
+      }
+    }
+
+    // Afterward, we remove all delivered message in queue
+    totalorder_.RemoveDelivered(msg_iq.room);
   }
 }

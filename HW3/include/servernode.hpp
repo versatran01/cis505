@@ -70,7 +70,7 @@ private:
   /// Handle different ordering
   void UnorderedDeliver(const std::string &msg);
   void FifoDeliver(const std::string &msg);
-  void TotalOrderDeliver(const std::string &msg);
+  void TotalOrderDeliver(const Address &addr, const std::string &msg);
 
   int fd_;
   int id_; // id of the server, starts at 1

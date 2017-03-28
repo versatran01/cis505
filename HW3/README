@@ -3,6 +3,8 @@ SEAS login: quchao
 
 Which features did you implement? 
   Entire assignment
+  For the verbose output, since I have a better logging mechanism, 
+  I didn't implement the one described in the handout
 
 Did you complete any extra-credit tasks? If so, which ones?
   (list extra-credit tasks)
@@ -23,5 +25,5 @@ Did you collaborate with anyone on this assignment?
 
 External lib used:
 loguru.hpp for logging.
-rang.hpp for colorful terminal output on client side.
+rang.hpp for colorful terminal output on client side (just for fun).
 json.hpp for serialization/deserialization of messages between servers.
