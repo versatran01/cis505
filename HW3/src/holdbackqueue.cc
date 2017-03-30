@@ -12,7 +12,7 @@ int HoldbackQueueFIFO::GetMsgIndex(const std::string &addr, int room,
   if (it == queue_.end()) {
     return -1;
   } else {
-    return std::distance(queue_.begin(), it);
+    return static_cast<int>(std::distance(queue_.begin(), it));
   }
 }
 

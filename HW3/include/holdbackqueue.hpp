@@ -10,7 +10,7 @@ public:
 
   int GetMsgIndex(const std::string &addr, int room, int seq) const;
 
-  const Message &GetMsg(int index) const { return queue_[index]; }
+  const Message &GetMsg(size_t index) const { return queue_[index]; }
 
   void RemoveByIndex(int index);
 

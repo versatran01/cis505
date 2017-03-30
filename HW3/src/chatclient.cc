@@ -1,6 +1,6 @@
 #include <arpa/inet.h>
-#include <cstdio>
-#include <cstdlib>
+#include <stdio.h>
+#include <stdlib.h>
 #include <cstring>
 #include <netdb.h>
 #include <sys/epoll.h>
